@@ -1,0 +1,9 @@
+node_modules/
+dist/
+backend/data/
+test-results/
+playwright-report/
+*.log
+.env
+.env.local
+.vercel/

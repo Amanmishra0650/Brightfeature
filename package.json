@@ -1,0 +1,30 @@
+{
+  "name": "bright-future-notes",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "22.x" },
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:web": "vite --host 127.0.0.1",
+    "dev:api": "node --watch backend/server.js",
+    "build": "vite build",
+    "start": "node backend/server.js",
+    "test": "node --test backend/server.test.js backend/pdf-preview.test.js",
+    "test:browser": "node scripts/browser-smoke.js"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.100",
+    "@vercel/blob": "^2.8.0",
+    "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^4.10.38",
+    "pg": "^8.23.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.1.0"
+  }
+}
