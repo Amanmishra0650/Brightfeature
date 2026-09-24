@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, Field, ErrorMessage } from '../../frontend/src/components.jsx';
 import { api } from '../../frontend/src/api.js';
+import { uploadPdf } from './upload-pdf.js';
 
 export default function UploadNotes({ note, onClose, onSaved }) {
   const [file, setFile] = useState(null);
@@ -18,8 +19,7 @@ export default function UploadNotes({ note, onClose, onSaved }) {
       const config = await api('/admin/upload-config');
       if (config.mode === 'cloud') {
         const prepared = await api(`/admin/notes/${note.id}/upload/prepare`, { method: 'POST', body: { name: file.name, size: file.size } });
-        const { put } = await import('@vercel/blob/client');
-        await put(prepared.pathname, file, { access: 'private', token: prepared.token, contentType: 'application/pdf', multipart: true, onUploadProgress: ({ percentage }) => setProgress(`Uploading PDF: ${Math.round(percentage)}%`) });
+        await uploadPdf(prepared.uploadUrl, file, percentage => setProgress(`Uploading PDF: ${Math.round(percentage)}%`));
         setProgress('Checking PDF and generating preview…');
         onSaved(await api(`/admin/notes/${note.id}/upload/complete`, { method: 'POST', body: { pathname: prepared.pathname } }));
         return;

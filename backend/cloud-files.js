@@ -1,4 +1,4 @@
-import { get, del, issueSignedToken } from '@vercel/blob';
+import { get, del, issueSignedToken, presignUrl } from '@vercel/blob';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -8,10 +8,11 @@ const fail = (status, message) =>
   Object.assign(new Error(message), { status });
 
 export function createCloudFiles({ oidcToken, storeId }) {
-  const auth = {
-    oidcToken,
+  // The application is cached across requests; use the current rotated token.
+  const auth = () => ({
+    oidcToken: process.env.VERCEL_OIDC_TOKEN || oidcToken,
     storeId,
-  };
+  });
 
   async function open(pathname) {
     if (!/^notes\/[a-f0-9-]+\.pdf$/.test(pathname)) {
@@ -20,7 +21,7 @@ export function createCloudFiles({ oidcToken, storeId }) {
 
     const result = await get(pathname, {
       access: 'private',
-      ...auth,
+      ...auth(),
     });
 
     if (!result || result.statusCode !== 200) {
@@ -47,15 +48,26 @@ export function createCloudFiles({ oidcToken, storeId }) {
   }
 
   return {
-    async token(pathname) {
-      return issueSignedToken({
+    async uploadUrl(pathname) {
+      if (!/^notes\/[a-f0-9-]+\.pdf$/.test(pathname)) throw fail(400, 'Invalid stored PDF path.');
+      const token = await issueSignedToken({
         pathname,
         operations: ['put'],
         allowedContentTypes: ['application/pdf'],
         maximumSizeInBytes: MAX_PDF_BYTES,
         validUntil: Date.now() + 3600000,
-        ...auth,
+        ...auth(),
       });
+      const { presignedUrl } = await presignUrl(token, {
+        pathname,
+        operation: 'put',
+        access: 'private',
+        allowedContentTypes: ['application/pdf'],
+        maximumSizeInBytes: MAX_PDF_BYTES,
+        addRandomSuffix: false,
+        allowOverwrite: false,
+      });
+      return presignedUrl;
     },
 
     async read(pathname) {
@@ -93,7 +105,7 @@ export function createCloudFiles({ oidcToken, storeId }) {
 
     remove: pathname =>
       del(pathname, {
-        ...auth,
+        ...auth(),
       }),
   };
 }

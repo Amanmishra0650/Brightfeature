@@ -30,16 +30,18 @@ async function jsonBody(req) {
   for await (const chunk of req) { body += chunk; if (Buffer.byteLength(body) > 20000) throw fail(413, 'Request is too large.'); }
   try { const parsed = JSON.parse(body || '{}'); if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw Error(); return parsed; } catch { throw fail(400, 'Invalid JSON object.'); }
 }
-export async function createApp({ dataDir = resolve(root, 'backend/data'), adminPassword = process.env.ADMIN_PASSWORD, gateway = razorpayGateway(), databaseUrl = process.env.DATABASE_URL, blobToken = process.env.BLOB_READ_WRITE_TOKEN } = {}) {
+export async function createApp({ dataDir = resolve(root, 'backend/data'), adminPassword = process.env.ADMIN_PASSWORD, gateway = razorpayGateway(), databaseUrl = process.env.DATABASE_URL, blobStoreId = process.env.BLOB_STORE_ID, oidcToken = process.env.VERCEL_OIDC_TOKEN } = {}) {
   if (typeof adminPassword !== 'string' || adminPassword.length < 12) throw Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters.');
   console.log("VERCEL ENV CHECK:", {
     VERCEL: Boolean(process.env.VERCEL),
-    DATABASE_URL: Boolean(process.env.DATABASE_URL),
-    BLOB_READ_WRITE_TOKEN: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    NODE_ENV: process.env.NODE_ENV,
+    DATABASE_URL: Boolean(databaseUrl),
+    BLOB_STORE_ID: Boolean(blobStoreId),
+    VERCEL_OIDC_TOKEN: Boolean(oidcToken),
   });
-  if (process.env.VERCEL && (!databaseUrl || !blobToken)) throw Error('Configure DATABASE_URL and private BLOB_READ_WRITE_TOKEN before deployment.');
+  if (process.env.VERCEL && (!databaseUrl || !blobStoreId || !oidcToken)) throw Error('Configure DATABASE_URL and connect the private Vercel Blob store before deployment.');
   const store = databaseUrl ? await createPostgresStore(databaseUrl) : await createStore(dataDir);
-  const cloud = blobToken ? createCloudFiles(blobToken) : null;
+  const cloud = blobStoreId && oidcToken ? createCloudFiles({ storeId: blobStoreId, oidcToken }) : null;
   const uploadsDir = resolve(dataDir, 'uploads');
   if (!cloud) await mkdir(uploadsDir, { recursive: true });
   const readPdf = storageName => cloud ? cloud.read(storageName) : readFile(resolve(uploadsDir, storageName));
@@ -255,13 +257,13 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
             if (!/\.pdf$/i.test(name) || /[\\/\x00-\x1f\x7f]/.test(name)) throw fail(400, 'Choose a valid PDF filename.');
             if (!Number.isInteger(body.size) || body.size <= 0 || body.size > 50 * 1024 * 1024) throw fail(413, 'Choose a non-empty PDF, 50 MB or smaller.');
             const pathname = 'notes/' + randomUUID() + '.pdf';
-            const token = await cloud.token(pathname);
+            const uploadUrl = await cloud.uploadUrl(pathname);
             await store.update(data => {
               data.pendingUploads ||= {};
               for (const [key, item] of Object.entries(data.pendingUploads)) if (item.expires < Date.now()) delete data.pendingUploads[key];
               data.pendingUploads[pathname] = { noteId: note.id, name, expires: Date.now() + 3600000 };
             });
-            return send(200, { pathname, token });
+            return send(200, { pathname, uploadUrl });
           }
           const pending = (await store.read()).pendingUploads?.[body.pathname];
           if (!pending || pending.noteId !== note.id || pending.expires < Date.now()) {

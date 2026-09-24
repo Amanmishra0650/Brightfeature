@@ -7,7 +7,8 @@ export default async function handler(req, res) {
     VERCEL: Boolean(process.env.VERCEL),
     NODE_ENV: process.env.NODE_ENV,
     DATABASE_URL: Boolean(process.env.DATABASE_URL),
-    BLOB_READ_WRITE_TOKEN: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    BLOB_STORE_ID: Boolean(process.env.BLOB_STORE_ID),
+    VERCEL_OIDC_TOKEN: Boolean(process.env.VERCEL_OIDC_TOKEN),
   });
 
   try {
@@ -29,9 +30,11 @@ export default async function handler(req, res) {
     });
 
     const app = await appPromise;
-    await app.listeners('request')[0](req, res);
+    const requestListener = app.listeners('request')[0];
+    if (!requestListener) throw new Error('HTTP request listener was not initialized.');
+    await requestListener(req, res);
   } catch (error) {
-    console.error('API startup failed:', error.message);
+    console.error('API startup failed:', error?.message || error);
 
     if (!res.headersSent) {
       res.writeHead(503, {

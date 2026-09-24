@@ -10,7 +10,7 @@
     "dev:api": "node --watch backend/server.js",
     "build": "vite build",
     "start": "node backend/server.js",
-    "test": "node --test backend/server.test.js backend/pdf-preview.test.js",
+    "test": "node --test backend/server.test.js backend/pdf-preview.test.js backend/cloud-files.test.js admin/src/upload-pdf.test.js",
     "test:browser": "node scripts/browser-smoke.js"
   },
   "dependencies": {

@@ -1,18 +1,21 @@
 # Vercel deployment
 
-The app supports local files/JSON during development and PostgreSQL plus private Vercel Blob in the cloud. `vercel.json` deploys both Vite pages and `api/index.js`. Original PDF downloads are authorised, then streamed; admin uploads go directly to private Blob storage using a one-path, one-hour token capped at 50 MB.
+The app supports local files/JSON during development and PostgreSQL plus private Vercel Blob in the cloud. `vercel.json` deploys both Vite pages and `api/index.js`. Original PDF downloads are authorised, then streamed; admin uploads go directly to private Blob storage using a signed PUT URL scoped to one path for one hour, capped at 50 MB. Upload progress is displayed; interrupted uploads can be retried by selecting the file again.
 
 ## Required services
 
 Connect a PostgreSQL database and a **private** Blob store to the Vercel project. Set these environment variables in Preview and Production before deployment:
 
 - `DATABASE_URL`: a pooled PostgreSQL connection string (with TLS as supplied by the database provider).
-- `BLOB_READ_WRITE_TOKEN`: the private Blob store token.
+- `BLOB_STORE_ID`: supplied when the private Blob store is connected to the project with OIDC authentication.
+- `VERCEL_OIDC_TOKEN`: the short-lived credential supplied and rotated by Vercel. Do not replace it with a permanent secret.
 - `ADMIN_PASSWORD`: a unique password at least 12 characters long, required in all environments.
 - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`: test keys first; live keys only after testing the merchant account.
 - `RAZORPAY_WEBHOOK_SECRET`: matches the Razorpay webhook configuration.
 
 Never expose secrets through `VITE_` variables or commit `.env`. Deployment excludes local PDFs, local records and environment files via `.vercelignore`.
+
+For an existing Blob connection, select **Upgrade to OIDC** from the project's menu on the Blob store's Projects tab. Redeploy after connecting the store. For local cloud development, use `vercel env pull .env` to refresh the short-lived credentials before starting the app or migration script.
 
 ## Commands
 

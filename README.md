@@ -27,7 +27,7 @@ For development, run `npm run dev`, then visit http://127.0.0.1:5173/frontend/ o
 - Admin PDF uploads and replacements (up to 50 MB each). Invalid or encrypted PDFs are rejected.
 - Server validation, server-calculated prices, HttpOnly session cookies, login throttling and atomic JSON persistence.
 
-Locally, data is created in `backend/data/store.json` and PDFs in `backend/data/uploads/`. With `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN`, data uses PostgreSQL and private Blob storage. Back up records and files together. Student sessions persist for 30 days and admin sessions for eight hours, including through restarts; only token hashes are stored. Seeded local orders are fictional and do not grant downloads. Permanent accounts, email delivery and cross-device purchase recovery are not implemented: keep your order ID for support if you clear cookies, end the session or switch devices.
+Locally, data is created in `backend/data/store.json` and PDFs in `backend/data/uploads/`. With `DATABASE_URL`, `BLOB_STORE_ID` and `VERCEL_OIDC_TOKEN`, data uses PostgreSQL and private Blob storage. Back up records and files together. Student sessions persist for 30 days and admin sessions for eight hours, including through restarts; only token hashes are stored. Seeded local orders are fictional and do not grant downloads. Permanent accounts, email delivery and cross-device purchase recovery are not implemented: keep your order ID for support if you clear cookies, end the session or switch devices.
 
 For Vercel configuration, cloud migration and deployment commands, see [DEPLOYMENT.md](DEPLOYMENT.md).
 

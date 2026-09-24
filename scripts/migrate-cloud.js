@@ -8,7 +8,7 @@ import { seedData } from '../backend/seed.js';
 import { isDeepStrictEqual } from 'node:util';
 
 try { loadEnvFile('.env'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
-if (!process.env.DATABASE_URL || !process.env.BLOB_READ_WRITE_TOKEN) throw Error('Set DATABASE_URL and BLOB_READ_WRITE_TOKEN before migrating.');
+if (!process.env.DATABASE_URL || !process.env.BLOB_STORE_ID || !process.env.VERCEL_OIDC_TOKEN) throw Error('Set DATABASE_URL, BLOB_STORE_ID and VERCEL_OIDC_TOKEN before migrating.');
 const source = JSON.parse(await readFile('backend/data/store.json', 'utf8'));
 const store = await createPostgresStore(process.env.DATABASE_URL);
 const uploaded = []; let committed = false;
