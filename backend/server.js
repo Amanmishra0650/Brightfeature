@@ -32,6 +32,11 @@ async function jsonBody(req) {
 }
 export async function createApp({ dataDir = resolve(root, 'backend/data'), adminPassword = process.env.ADMIN_PASSWORD, gateway = razorpayGateway(), databaseUrl = process.env.DATABASE_URL, blobToken = process.env.BLOB_READ_WRITE_TOKEN } = {}) {
   if (typeof adminPassword !== 'string' || adminPassword.length < 12) throw Error('Set ADMIN_PASSWORD to a unique password of at least 12 characters.');
+  console.log("VERCEL ENV CHECK:", {
+    VERCEL: Boolean(process.env.VERCEL),
+    DATABASE_URL: Boolean(process.env.DATABASE_URL),
+    BLOB_READ_WRITE_TOKEN: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+  });
   if (process.env.VERCEL && (!databaseUrl || !blobToken)) throw Error('Configure DATABASE_URL and private BLOB_READ_WRITE_TOKEN before deployment.');
   const store = databaseUrl ? await createPostgresStore(databaseUrl) : await createStore(dataDir);
   const cloud = blobToken ? createCloudFiles(blobToken) : null;
