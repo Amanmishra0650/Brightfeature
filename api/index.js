@@ -1,4 +1,5 @@
 import { createApp } from '../backend/server.js';
+import { runWithOidcToken } from '../backend/oidc-context.js';
 
 let appPromise;
 
@@ -24,15 +25,24 @@ export default async function handler(req, res) {
         (url.searchParams.size ? '?' + url.searchParams : '');
     }
 
-    appPromise ||= createApp().catch(error => {
-      appPromise = undefined;
-      throw error;
-    });
+    await runWithOidcToken(
+      req.headers['x-vercel-oidc-token'],
+      async () => {
+        appPromise ||= createApp({
+          oidcToken: req.headers['x-vercel-oidc-token'],
+        }).catch(error => {
+          appPromise = undefined;
+          throw error;
+        });
 
-    const app = await appPromise;
-    const requestListener = app.listeners('request')[0];
-    if (!requestListener) throw new Error('HTTP request listener was not initialized.');
-    await requestListener(req, res);
+        const app = await appPromise;
+        const requestListener = app.listeners('request')[0];
+        if (!requestListener) {
+          throw new Error('HTTP request listener was not initialized.');
+        }
+        await requestListener(req, res);
+      },
+    );
   } catch (error) {
     console.error('API startup failed:', error?.message || error);
 

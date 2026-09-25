@@ -2,6 +2,52 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from 'undici';
 import { createCloudFiles, MAX_PDF_BYTES } from './cloud-files.js';
+import { runWithOidcToken } from './oidc-context.js';
+
+test('cached Blob clients isolate concurrent request tokens and retain local fallbacks', async () => {
+  const previousDispatcher = getGlobalDispatcher();
+  const previousToken = process.env.VERCEL_OIDC_TOKEN;
+  const agent = new MockAgent();
+  agent.disableNetConnect();
+  setGlobalDispatcher(agent);
+  const pool = agent.get('https://vercel.com');
+  const cloud = createCloudFiles({ storeId: 'teststore', oidcToken: 'startup-fixture' });
+  const pathname = 'notes/1234-abcd.pdf';
+  const expectToken = token => pool.intercept({
+    path: '/api/blob/delete', method: 'POST',
+    headers: { authorization: `Bearer ${token}` },
+  }).reply(200, {});
+  try {
+    process.env.VERCEL_OIDC_TOKEN = 'environment-fixture';
+    expectToken('request-one-fixture');
+    expectToken('request-two-fixture');
+    let releaseFirst;
+    const secondStarted = new Promise(resolve => { releaseFirst = resolve; });
+    await Promise.all([
+      runWithOidcToken('request-one-fixture', async () => {
+        await secondStarted;
+        await cloud.remove(pathname);
+      }),
+      runWithOidcToken('request-two-fixture', async () => {
+        releaseFirst();
+        await cloud.remove(pathname);
+      }),
+    ]);
+    expectToken('rotated-request-fixture');
+    await runWithOidcToken('rotated-request-fixture', () => cloud.remove(pathname));
+    expectToken('environment-fixture');
+    await cloud.remove(pathname);
+    delete process.env.VERCEL_OIDC_TOKEN;
+    expectToken('startup-fixture');
+    await runWithOidcToken(undefined, () => cloud.remove(pathname));
+    agent.assertNoPendingInterceptors();
+  } finally {
+    if (previousToken === undefined) delete process.env.VERCEL_OIDC_TOKEN;
+    else process.env.VERCEL_OIDC_TOKEN = previousToken;
+    setGlobalDispatcher(previousDispatcher);
+    await agent.close();
+  }
+});
 
 test('OIDC uploads expose a scoped signed URL and refresh credentials between requests', async () => {
   const previousDispatcher = getGlobalDispatcher();

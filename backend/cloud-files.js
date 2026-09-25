@@ -1,6 +1,7 @@
 import { get, del, issueSignedToken, presignUrl } from '@vercel/blob';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { getRequestOidcToken } from './oidc-context.js';
 
 export const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
@@ -10,7 +11,7 @@ const fail = (status, message) =>
 export function createCloudFiles({ oidcToken, storeId }) {
   // The application is cached across requests; use the current rotated token.
   const auth = () => ({
-    oidcToken: process.env.VERCEL_OIDC_TOKEN || oidcToken,
+    oidcToken: getRequestOidcToken() || process.env.VERCEL_OIDC_TOKEN || oidcToken,
     storeId,
   });
 
