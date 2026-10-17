@@ -11,7 +11,7 @@ export default function PreviewModal({ note, onClose, onBuy }) {
     {preview && <div className="pdf-preview"><p>{preview.pageCount} pages · {preview.pages.length} available to preview</p>
       {preview.pages.map((src, i) => <figure key={src}><figcaption>Page {i + preview.startPage}</figcaption><img src={src} alt={`Preview page ${i + preview.startPage} of ${note.title}`} onError={() => setError('Could not load this page. Close the preview and try again.')}/></figure>)}
       {preview.pages.length === 0 && <p>No sample pages after the cover are available.</p>}
-      <div className="preview-purchase"><span>Full PDF · {money(note.price)}</span><button className="button button-blue" onClick={onBuy}>Buy now</button></div>
+      <div className="preview-purchase"><span>Unlock the full PDF · {money(note.price)}</span><button className="button button-blue" onClick={onBuy}>Buy now</button></div>
     </div>}
   </Modal>;
 }
