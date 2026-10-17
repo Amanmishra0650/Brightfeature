@@ -37,8 +37,15 @@ test('covers persist across restarts, change on replacement, and never expose PD
     const rendered = await renderPreview(pdfFixture());
     assert.deepEqual(firstBytes, rendered.pages[0]);
     assert.notDeepEqual(firstBytes, rendered.pages[1]);
+    const sample = await (await fetch(base + '/api/notes/pet/preview')).json();
+    assert.equal(sample.startPage, 2);
+    assert.equal(sample.pages.length, 3);
+    for (const [i, url] of sample.pages.entries()) {
+      assert.match(url, new RegExp(`/preview/${i + 2}\\?`));
+      assert.deepEqual(Buffer.from(await (await fetch(base + url)).arrayBuffer()), rendered.pages[i + 1]);
+    }
     assert.deepEqual(firstBytes.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-    assert.equal((await fetch(base + '/api/notes/pet/preview/3')).status, 404);
+    assert.equal((await fetch(base + '/api/notes/pet/preview/5')).status, 404);
     assert.equal((await fetch(base + '/api/admin/notes/pet/file')).status, 401);
     const replacement = await upload(await readFile('public/sample-notes.pdf'));
     assert.equal(replacement.status, 200);
@@ -54,8 +61,8 @@ test('covers persist across restarts, change on replacement, and never expose PD
     base = await start();
     assert.deepEqual(Buffer.from(await (await fetch(base + changed.coverUrl)).arrayBuffer()), cover);
     const metadata = await (await fetch(base + '/api/notes/pet/preview')).json();
-    assert.equal(metadata.pages.length, 1);
-    assert.deepEqual(Buffer.from(await (await fetch(base + metadata.pages[0])).arrayBuffer()), cover);
+    assert.equal(metadata.pages.length, 0);
+    assert.equal(metadata.startPage, 2);
     assert.equal((await fetch(base + '/api/notes/stet/preview/1')).status, 404);
     const hidden = await fetch(base + '/api/admin/notes/pet', { method: 'PUT', headers: { cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ ...changed, published: false }) });
     assert.equal(hidden.status, 200);
@@ -103,7 +110,7 @@ test('legacy PDF covers backfill once through the public route and local command
     assert.match(again.stdout, /"pending":0,"completed":0,"failed":0/);
     const after = JSON.parse(await readFile(join(dataDir, 'store.json')));
     for (let i = 0; i < 2; i++) {
-      assert.equal(after.notes[i].file.preview.pages.length, 2);
+      assert.equal(after.notes[i].file.preview.pages.length, 4);
       delete after.notes[i].file.preview;
     }
     assert.deepEqual(after.notes, before.notes);

@@ -55,7 +55,7 @@ test('API protects admin changes and persists validated demo transactions', asyn
     assert.equal(edited.body.file.name, 'Exam notes.pdf');
     const preview = await request('/notes/pet/preview');
     assert.equal(preview.status, 200);
-    assert.equal(preview.body.pages.length, 1);
+    assert.equal(preview.body.pages.length, 0);
     assert.equal((await fetch(base + '/api/notes/pet/preview/3')).status, 404);
     assert.equal((await fetch(base + '/api/notes/pet/preview/1')).headers.get('content-type'), 'image/png');
     assert.equal((await request('/admin/notes', 'POST', { title: '' }, cookie)).status, 400);

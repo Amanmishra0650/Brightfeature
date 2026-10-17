@@ -45,11 +45,11 @@ npx vercel deploy --prod
 
 ## Verification on the deployed URL
 
-PDF uploads now persist the first two preview PNGs in the same private Blob store. Cards and preview dialogs use these stored images through `/api/notes/:id/preview/:page`; original Blob URLs are never returned in the public catalogue. Replacements change image versions and remove the previous PDF and previews after the new record is committed.
+PDF uploads now persist up to four PNGs (the cover and three sample pages) in the same private Blob store. Cards and preview dialogs use these stored images through `/api/notes/:id/preview/:page`; original Blob URLs are never returned in the public catalogue. Replacements change image versions and remove the previous PDF and previews after the new record is committed.
 
 Existing PDFs work with a one-time automatic preview backfill. To prepare the catalogue before traffic arrives, refresh the target cloud environment/OIDC credentials, review `npm run backfill:previews -- --cloud`, then run `npm run backfill:previews -- --cloud --apply`. This adds missing images and metadata without replacing notes, PDFs or orders. It is safe to repeat and checks for concurrent PDF replacements. No database schema migration is needed. See README for local backfill commands.
 
-Check `/`, `/admin/`, `/api/health`, and the admin login. Upload and replace a PDF over 4.5 MB; this must use Blob directly. Confirm the actual first two pages preview, page 3 cannot be fetched, unpaid downloads fail, and the uploaded original downloads after a verified test payment.
+Check `/`, `/admin/`, `/api/health`, and the admin login. Upload and replace a PDF over 4.5 MB; this must use Blob directly. Confirm the dialog shows pages 2-4 without the cover, page 5 cannot be fetched, unpaid downloads fail, and the uploaded original downloads after a verified test payment.
 
 Configure Razorpay webhooks at `https://YOUR_DOMAIN/api/payments/webhook` for `payment.captured` and `order.paid`. Enable automatic capture. Automated local tests simulate the external gateway; they do not verify a real merchant transaction.
 

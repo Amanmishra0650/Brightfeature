@@ -50,12 +50,12 @@ export function createCloudFiles({ oidcToken, storeId }) {
 
   return {
     async writePreview(pathname, content) {
-      if (!/^previews\/[a-f0-9-]+-[12]\.png$/.test(pathname)) throw fail(400, 'Invalid preview path.');
+      if (!/^previews\/[a-f0-9-]+-[1-4]\.png$/.test(pathname)) throw fail(400, 'Invalid preview path.');
       await put(pathname, content, { access: 'private', contentType: 'image/png', addRandomSuffix: false, allowOverwrite: false, ...auth() });
     },
 
     async readPreview(pathname) {
-      if (!/^previews\/[a-f0-9-]+-[12]\.png$/.test(pathname)) throw fail(400, 'Invalid preview path.');
+      if (!/^previews\/[a-f0-9-]+-[1-4]\.png$/.test(pathname)) throw fail(400, 'Invalid preview path.');
       const result = await get(pathname, { access: 'private', ...auth() });
       if (!result || result.statusCode !== 200) throw fail(404, 'Preview unavailable.');
       if (!new URL(result.blob.url).hostname.endsWith('.private.blob.vercel-storage.com')) {

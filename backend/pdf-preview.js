@@ -7,7 +7,8 @@ export async function renderPreview(content) {
   try {
     const doc = await task.promise;
     const pages = [];
-    for (let i = 1; i <= Math.min(doc.numPages, 2); i++) {
+    // Page 1 is the card cover; pages 2–4 are the three-page reading sample.
+    for (let i = 1; i <= Math.min(doc.numPages, 4); i++) {
       const page = await doc.getPage(i);
       const natural = page.getViewport({ scale: 1 });
       const scale = Math.min(1000 / natural.width, 1500 / natural.height);

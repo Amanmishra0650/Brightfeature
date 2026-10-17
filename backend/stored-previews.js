@@ -4,10 +4,10 @@ import { resolve } from 'node:path';
 import { renderPreview } from './pdf-preview.js';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
-export const previewPath = /^previews\/[a-f0-9-]+-[12]\.png$/;
+export const previewPath = /^previews\/[a-f0-9-]+-[1-4]\.png$/;
 
 export function hasStoredPreview(file) {
-  return Boolean(file?.preview?.id && file.preview.pages?.length === Math.min(file.pageCount, 2)
+  return Boolean(file?.preview?.id && file.preview.pages?.length === Math.min(file.pageCount, 4)
     && file.preview.pages.length > 0 && file.preview.pages.every(path => previewPath.test(path)));
 }
 
@@ -66,11 +66,14 @@ export async function ensureStoredPreview({ store, note, storage, readPdf }) {
   const rendered = await renderPreview(await readPdf(note.file.storageName));
   const preview = await storage.save(rendered);
   let retained = false;
+  let previousPreview;
+  let file;
   try {
-    return await store.update(data => {
+    file = await store.update(data => {
       const current = data.notes.find(item => item.id === note.id);
       if (current?.file?.storageName !== note.file.storageName) throw fail(409, 'PDF changed. Please refresh the page.');
       if (!hasStoredPreview(current.file)) {
+        previousPreview = current.file.preview;
         current.file.preview = preview;
         current.file.pageCount = rendered.pageCount;
         retained = true;
@@ -79,6 +82,8 @@ export async function ensureStoredPreview({ store, note, storage, readPdf }) {
     });
   } catch (error) { retained = false; throw error; }
   finally { if (!retained) await storage.remove(preview); }
+  if (retained && previousPreview) await storage.remove(previousPreview);
+  return file;
 }
 
 export async function backfillPreviews({ store, storage, readPdf, apply = false, log = console.log }) {

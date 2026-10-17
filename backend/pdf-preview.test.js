@@ -26,10 +26,10 @@ function fixture(pageCount) {
   return Buffer.from(pdf)
 }
 
-test('renders only the first two actual pages as bounded PNGs', async () => {
-  const result = await renderPreview(fixture(4))
-  assert.equal(result.pageCount, 4)
-  assert.equal(result.pages.length, 2)
+test('renders the cover and next three actual pages as bounded PNGs', async () => {
+  const result = await renderPreview(fixture(6))
+  assert.equal(result.pageCount, 6)
+  assert.equal(result.pages.length, 4)
   for (const page of result.pages) {
     assert.ok(Buffer.isBuffer(page))
     assert.deepEqual(page.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
@@ -42,7 +42,15 @@ test('renders only the first two actual pages as bounded PNGs', async () => {
 test('renders the existing sample PDF', async () => {
   const result = await renderPreview(await readFile(new URL('../public/sample-notes.pdf', import.meta.url)))
   assert.ok(result.pageCount >= 1)
-  assert.equal(result.pages.length, Math.min(2, result.pageCount))
+  assert.equal(result.pages.length, Math.min(4, result.pageCount))
+})
+
+test('short PDFs only generate their existing pages', async () => {
+  for (const count of [1, 2, 3]) {
+    const result = await renderPreview(fixture(count))
+    assert.equal(result.pageCount, count)
+    assert.equal(result.pages.length, count)
+  }
 })
 
 test('rejects invalid PDF data with an actionable client error', async () => {

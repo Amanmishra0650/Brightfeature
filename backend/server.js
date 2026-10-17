@@ -149,14 +149,14 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
       }
       if (path === '/api/health') return send(200, { ok: true, mode: 'demo' });
       if (path === '/api/notes' && method === 'GET') return send(200, (await store.read()).notes.filter(note => note.published).map(({ file, ...note }) => ({ ...note, hasFile: Boolean(file), coverUrl: previewUrl({ ...note, file }), pages: file?.pageCount || note.pages })));
-      const previewMatch = path.match(/^\/api\/notes\/([^/]+)\/preview(?:\/([12]))?$/);
+      const previewMatch = path.match(/^\/api\/notes\/([^/]+)\/preview(?:\/([1-4]))?$/);
       if (previewMatch && method === 'GET') {
         const note = (await store.read()).notes.find(item => item.id === previewMatch[1] && item.published);
         if (!note) throw fail(404, 'Notes not found.');
         const requestedVersion = url.searchParams.get('v');
         if (requestedVersion && requestedVersion !== previewVersion(note.file)) throw fail(404, 'Preview changed. Please refresh the page.');
         const file = await previewFor(note);
-        if (!previewMatch[2]) return send(200, { pageCount: file.pageCount, pages: file.preview.pages.map((_, i) => previewUrl({ ...note, file }, i + 1)) });
+        if (!previewMatch[2]) return send(200, { pageCount: file.pageCount, startPage: 2, pages: file.preview.pages.slice(1, 4).map((_, i) => previewUrl({ ...note, file }, i + 2)) });
         const pathname = file.preview.pages[Number(previewMatch[2]) - 1];
         if (!pathname) throw fail(404, 'Page not found.');
         const content = await previewStorage.read(pathname);
