@@ -1,4 +1,4 @@
-import { get, del, issueSignedToken, presignUrl } from '@vercel/blob';
+import { get, put, del, issueSignedToken, presignUrl } from '@vercel/blob';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { getRequestOidcToken } from './oidc-context.js';
@@ -49,6 +49,29 @@ export function createCloudFiles({ oidcToken, storeId }) {
   }
 
   return {
+    async writePreview(pathname, content) {
+      if (!/^previews\/[a-f0-9-]+-[12]\.png$/.test(pathname)) throw fail(400, 'Invalid preview path.');
+      await put(pathname, content, { access: 'private', contentType: 'image/png', addRandomSuffix: false, allowOverwrite: false, ...auth() });
+    },
+
+    async readPreview(pathname) {
+      if (!/^previews\/[a-f0-9-]+-[12]\.png$/.test(pathname)) throw fail(400, 'Invalid preview path.');
+      const result = await get(pathname, { access: 'private', ...auth() });
+      if (!result || result.statusCode !== 200) throw fail(404, 'Preview unavailable.');
+      if (!new URL(result.blob.url).hostname.endsWith('.private.blob.vercel-storage.com')) {
+        await result.stream.cancel();
+        throw fail(503, 'Configure a private Blob store for previews.');
+      }
+      const chunks = []; let size = 0;
+      if (result.blob.size > 10 * 1024 * 1024) { await result.stream.cancel(); throw fail(413, 'Preview is too large.'); }
+      for await (const chunk of Readable.fromWeb(result.stream)) {
+        size += chunk.length;
+        if (size > 10 * 1024 * 1024) throw fail(413, 'Preview is too large.');
+        chunks.push(chunk);
+      }
+      return Buffer.concat(chunks);
+    },
+
     async uploadUrl(pathname) {
       if (!/^notes\/[a-f0-9-]+\.pdf$/.test(pathname)) throw fail(400, 'Invalid stored PDF path.');
       const token = await issueSignedToken({

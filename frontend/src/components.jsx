@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, GraduationCap, ArrowUpRight, BookOpen, Check } from 'lucide-react';
 
 export function Brand({ small = false }) {
@@ -11,6 +11,14 @@ export function Modal({ title, children, onClose, wide = false }) {
 }
 export function BookCover({ category = 'CTET', variant = 0, hero = false }) {
   return <div className={`book-cover cover-${variant % 5} ${hero ? 'hero-book' : ''}`} aria-hidden="true"><div className="cover-top"><GraduationCap size={hero ? 23 : 16}/><span>BRIGHT FUTURE<small>LEARN TODAY. LEAD TOMORROW.</small></span></div><div className="cover-body"><span className="cover-edition">COMPLETE PREPARATION GUIDE</span><strong>{category === 'Bihar Police SI' ? <>BIHAR<br/>POLICE SI</> : category === 'BPSC TRE 4.0' ? <>BPSC<br/>TRE 4.0</> : category}<i>2026</i></strong><div className="cover-line"/><p>One goal.<br/>A brighter future.</p></div><div className="cover-bottom"><span>NOTES + PYQ + PRACTICE</span><ArrowUpRight size={22}/></div><div className="cover-rings"/></div>;
+}
+export function NoteCover({ note }) {
+  const [state, setState] = useState('loading');
+  const unavailable = !note.coverUrl || state === 'error';
+  return <div className={`note-cover ${unavailable ? 'note-cover-unavailable' : `note-cover-${state}`}`}>
+    {note.coverUrl && state !== 'error' && <img src={note.coverUrl} alt={`First page of ${note.title}`} loading="lazy" decoding="async" onLoad={() => setState('ready')} onError={() => setState('error')}/>}
+    {unavailable ? <div className="note-cover-message"><BookOpen size={28} aria-hidden="true"/><span>Preview unavailable</span></div> : state === 'loading' ? <div className="note-cover-message" role="status"><span className="note-cover-spinner" aria-hidden="true"/><span>Loading preview…</span></div> : null}
+  </div>;
 }
 export function Field({ label, children }) { return <label className="field"><span>{label}</span>{children}</label>; }
 export function ErrorMessage({ message }) { return message ? <div className="error-message" role="alert">{message}</div> : null; }

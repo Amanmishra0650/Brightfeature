@@ -9,6 +9,7 @@ import { createPostgresStore } from './postgres-store.js';
 import { createCloudFiles } from './cloud-files.js';
 import { categories } from './seed.js';
 import { renderPreview } from './pdf-preview.js';
+import { createPreviewStorage, ensureStoredPreview, previewUrl, previewVersion } from './stored-previews.js';
 import { razorpayGateway, capturedPaymentMatches } from './payments.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -46,13 +47,13 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
   if (!cloud) await mkdir(uploadsDir, { recursive: true });
   const readPdf = storageName => cloud ? cloud.read(storageName) : readFile(resolve(uploadsDir, storageName));
   const removePdf = storageName => cloud ? cloud.remove(storageName) : unlink(resolve(uploadsDir, storageName));
-  const previews = new Map();
+  const previewStorage = createPreviewStorage({ dataDir, cloud });
+  const previews = new Map(); // Only coalesce in-flight legacy backfills; PNGs live in persistent storage.
   async function previewFor(note) {
     if (!note?.file) throw fail(404, 'The admin has not uploaded a PDF for these notes yet.');
     const key = note.file.storageName;
     if (!previews.has(key)) {
-      if (previews.size >= 6) previews.delete(previews.keys().next().value);
-      previews.set(key, readPdf(key).then(renderPreview).catch(error => { previews.delete(key); throw error; }));
+      previews.set(key, ensureStoredPreview({ store, note, storage: previewStorage, readPdf }).finally(() => previews.delete(key)));
     }
     return previews.get(key);
   }
@@ -147,15 +148,18 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
         if (new URL(req.headers.origin).host !== host) throw fail(403, 'Origin is not allowed.');
       }
       if (path === '/api/health') return send(200, { ok: true, mode: 'demo' });
-      if (path === '/api/notes' && method === 'GET') return send(200, (await store.read()).notes.filter(note => note.published).map(({ file, ...note }) => ({ ...note, hasFile: Boolean(file), pages: file?.pageCount || note.pages })));
+      if (path === '/api/notes' && method === 'GET') return send(200, (await store.read()).notes.filter(note => note.published).map(({ file, ...note }) => ({ ...note, hasFile: Boolean(file), coverUrl: previewUrl({ ...note, file }), pages: file?.pageCount || note.pages })));
       const previewMatch = path.match(/^\/api\/notes\/([^/]+)\/preview(?:\/([12]))?$/);
       if (previewMatch && method === 'GET') {
         const note = (await store.read()).notes.find(item => item.id === previewMatch[1] && item.published);
         if (!note) throw fail(404, 'Notes not found.');
-        const preview = await previewFor(note);
-        if (!previewMatch[2]) return send(200, { pageCount: preview.pageCount, pages: preview.pages.map((_, i) => `/api/notes/${note.id}/preview/${i + 1}`) });
-        const content = preview.pages[Number(previewMatch[2]) - 1];
-        if (!content) throw fail(404, 'Page not found.');
+        const requestedVersion = url.searchParams.get('v');
+        if (requestedVersion && requestedVersion !== previewVersion(note.file)) throw fail(404, 'Preview changed. Please refresh the page.');
+        const file = await previewFor(note);
+        if (!previewMatch[2]) return send(200, { pageCount: file.pageCount, pages: file.preview.pages.map((_, i) => previewUrl({ ...note, file }, i + 1)) });
+        const pathname = file.preview.pages[Number(previewMatch[2]) - 1];
+        if (!pathname) throw fail(404, 'Page not found.');
+        const content = await previewStorage.read(pathname);
         res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' }); res.end(content); return;
       }
       if (path === '/api/payments/config' && method === 'GET') return send(200, gateway.config);
@@ -246,6 +250,13 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
         if (path === '/api/admin/notes' && method === 'GET') return send(200, (await store.read()).notes);
         if (path === '/api/admin/orders' && method === 'GET') return send(200, (await store.read()).orders);
         if (path === '/api/admin/upload-config' && method === 'GET') return send(200, { mode: cloud ? 'cloud' : 'local', maxBytes: 50 * 1024 * 1024 });
+        const backfillMatch = path.match(/^\/api\/admin\/notes\/([^/]+)\/preview$/);
+        if (backfillMatch && method === 'POST') {
+          const note = (await store.read()).notes.find(item => item.id === backfillMatch[1]);
+          if (!note) throw fail(404, 'Notes not found.');
+          await previewFor(note);
+          return send(200, { ok: true });
+        }
         const cloudMatch = path.match(/^\/api\/admin\/notes\/([^/]+)\/upload\/(prepare|complete)$/);
         if (cloudMatch && method === 'POST') {
           if (!cloud) throw fail(400, 'Cloud uploads are not enabled.');
@@ -274,9 +285,12 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
           let preview;
           try { preview = await renderPreview(content); }
           catch (error) { await cloud.remove(body.pathname).catch(() => {}); throw error; }
-          const file = { name: pending.name, size: content.length, pageCount: preview.pageCount, storageName: body.pathname, uploadedAt: new Date().toISOString() };
+          const storedPreview = await previewStorage.save(preview);
+          const file = { name: pending.name, size: content.length, pageCount: preview.pageCount, storageName: body.pathname, uploadedAt: new Date().toISOString(), preview: storedPreview };
           let previous;
-          const updated = await store.update(data => {
+          let keptPreview = false;
+          let updated;
+          try { updated = await store.update(data => {
             const current = data.notes.find(item => item.id === note.id);
             if (!current) throw fail(404, 'Notes no longer exist.');
             if (!data.pendingUploads?.[body.pathname]) {
@@ -285,11 +299,15 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
             }
             previous = current.file;
             current.file = file;
+            keptPreview = true;
             delete data.pendingUploads[body.pathname];
             return current;
-          });
-          previews.clear();
-          if (previous && previous.storageName !== file.storageName) await removePdf(previous.storageName).catch(() => {});
+          }); } catch (error) { keptPreview = false; throw error; }
+          finally { if (!keptPreview) await previewStorage.remove(storedPreview); }
+          if (previous && previous.storageName !== file.storageName) {
+            await removePdf(previous.storageName).catch(() => {});
+            await previewStorage.remove(previous.preview);
+          }
           return send(200, updated);
         }
         const fileMatch = path.match(/^\/api\/admin\/notes\/([^/]+)\/file$/);
@@ -316,6 +334,7 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
           let previous;
           let updated;
           try {
+            file.preview = await previewStorage.save(preview);
             updated = await store.update(data => {
               const item = data.notes.find(item => item.id === fileMatch[1]);
               if (!item) throw fail(404, 'Notes no longer exist.');
@@ -323,9 +342,11 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
               item.file = file;
               return item;
             });
-          } catch (error) { await unlink(destination).catch(() => {}); throw error; }
-          previews.clear();
-          if (previous) await unlink(resolve(uploadsDir, previous.storageName)).catch(error => { if (error.code !== 'ENOENT') console.error(error); });
+          } catch (error) { await unlink(destination).catch(() => {}); await previewStorage.remove(file.preview); throw error; }
+          if (previous) {
+            await removePdf(previous.storageName).catch(error => { if (error.code !== 'ENOENT') console.error(error); });
+            await previewStorage.remove(previous.preview);
+          }
           return send(200, updated);
         }
         if (path === '/api/admin/settings' && method === 'PUT') {
@@ -345,7 +366,10 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
             if (method === 'DELETE') { removedFile = data.notes[index].file; data.notes.splice(index, 1); return { ok: true }; }
             return data.notes[index] = { ...body, id: noteMatch[1], ...(data.notes[index].file ? { file: data.notes[index].file } : {}) };
           });
-          if (removedFile) await removePdf(removedFile.storageName).catch(error => { if (error.code !== 'ENOENT') console.error(error); });
+          if (removedFile) {
+            await removePdf(removedFile.storageName).catch(error => { if (error.code !== 'ENOENT') console.error(error); });
+            await previewStorage.remove(removedFile.preview);
+          }
           return send(200, result);
         }
         const orderMatch = path.match(/^\/api\/admin\/orders\/([^/]+)$/);

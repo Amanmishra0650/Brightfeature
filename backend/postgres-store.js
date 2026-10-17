@@ -2,11 +2,13 @@ import pg from 'pg';
 import { seedData } from './seed.js';
 
 // The row lock makes every update atomic across concurrent Vercel instances.
-export async function createPostgresStore(connectionString) {
+export async function createPostgresStore(connectionString, { initialize = true } = {}) {
   const pool = new pg.Pool({ connectionString, max: 3, idleTimeoutMillis: 10000, connectionTimeoutMillis: 15000, allowExitOnIdle: true });
-  await pool.query('CREATE TABLE IF NOT EXISTS bright_future_state (id integer PRIMARY KEY CHECK (id = 1), data jsonb NOT NULL)');
-  const initial = seedData(); initial.orders = [];
-  await pool.query('INSERT INTO bright_future_state (id, data) VALUES (1, $1) ON CONFLICT (id) DO NOTHING', [JSON.stringify(initial)]);
+  if (initialize) {
+    await pool.query('CREATE TABLE IF NOT EXISTS bright_future_state (id integer PRIMARY KEY CHECK (id = 1), data jsonb NOT NULL)');
+    const initial = seedData(); initial.orders = [];
+    await pool.query('INSERT INTO bright_future_state (id, data) VALUES (1, $1) ON CONFLICT (id) DO NOTHING', [JSON.stringify(initial)]);
+  }
   return {
     async read() { return (await pool.query('SELECT data FROM bright_future_state WHERE id = 1')).rows[0].data; },
     async update(fn) {

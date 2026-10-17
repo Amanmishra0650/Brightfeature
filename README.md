@@ -41,6 +41,22 @@ For Vercel configuration, cloud migration and deployment commands, see [DEPLOYME
 
 Uploads persist through server restarts. PDFs with only one or two pages show their available pages in the preview; downloading the original still requires payment. Replacing an attachment updates the preview and the PDF available to existing paid orders.
 
+Note cards use the actual first PDF page, shown completely at its original aspect ratio. Uploading or replacing a PDF saves the first two page images once (or the only page for a one-page PDF). Images live in `backend/data/previews/` locally or the existing private Blob store in the cloud. Public routes serve only these PNGs for published notes; original PDFs remain behind payment/download checks. Notes without a PDF, or whose image cannot load, show **Preview unavailable**.
+
+Older PDFs are backfilled once when their preview is first requested. To prepare all existing previews in advance, including unpublished notes, use the repeatable command below. It defaults to a dry run and only adds missing preview metadata/images; it preserves PDFs, notes, prices, orders, settings and sessions (the local command creates and closes its own temporary admin session).
+
+```sh
+# Local: keep the API running with the same ADMIN_PASSWORD and PORT as this shell/.env.
+npm run backfill:previews -- --local
+npm run backfill:previews -- --local --apply
+
+# Cloud: load the target DATABASE_URL, BLOB_STORE_ID and fresh VERCEL_OIDC_TOKEN.
+npm run backfill:previews -- --cloud
+npm run backfill:previews -- --cloud --apply
+```
+
+Cloud backfill requires an existing catalogue and never initialises or replaces a database. Metadata updates check that each PDF is still current, so concurrent replacements win. Failures are reported per note with a nonzero exit code; rerun after fixing missing files or credentials. No schema migration is required.
+
 ## Enable Razorpay
 
 1. Copy `.env.example` to `.env` in the project folder.

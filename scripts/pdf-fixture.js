@@ -1,9 +1,9 @@
 // Four distinct pages for browser checks; no customer material is used.
-export function pdfFixture() {
+export function pdfFixture({ width = 612, height = 792, tint = 0 } = {}) {
   const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Count 4 /Kids [3 0 R 5 0 R 7 0 R 9 0 R] >>'];
   for (let i = 0; i < 4; i++) {
-    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents ${4 + i * 2} 0 R >>`);
-    const stream = `${i / 4} 0.2 0.5 rg 40 40 200 200 re f\n`;
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width} ${height}] /Resources << >> /Contents ${4 + i * 2} 0 R >>`);
+    const stream = `${i / 4} ${0.2 + tint} 0.5 rg 40 40 200 200 re f\n`;
     objects.push(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}endstream`);
   }
   let pdf = '%PDF-1.4\n'; const offsets = [];
