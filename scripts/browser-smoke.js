@@ -60,7 +60,7 @@ try {
   const cardCover = ctetCard.getByRole('img', { name: 'First page of CTET Preparation Notes', exact: true });
   await expect(cardCover).toBeVisible();
   await expect(cardCover).toHaveJSProperty('naturalWidth', 1000);
-  assert.equal(await cardCover.evaluate(img => getComputedStyle(img).objectFit), 'contain');
+  assert.equal(await cardCover.evaluate(img => getComputedStyle(img).objectFit), 'cover');
   await expect(page.locator('.note-cover-unavailable')).toHaveCount(4);
   assert.equal(await page.locator('.card-art .book-cover').count(), 0);
   await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'All Notes', exact: true }).click();
@@ -89,12 +89,12 @@ try {
     await img.scrollIntoViewIfNeeded();
     await expect(img).toBeVisible();
     await expect(img).toHaveJSProperty('naturalWidth', 1000);
-    assert.equal(await img.evaluate(el => getComputedStyle(el).objectFit), 'contain');
+    assert.equal(await img.evaluate(el => getComputedStyle(el).objectFit), 'cover');
     assert.equal(await img.evaluate(el => {
       const image = el.getBoundingClientRect();
-      const frame = el.parentElement.getBoundingClientRect();
-      return image.top >= frame.top - 1 && image.bottom <= frame.bottom + 1 && image.left >= frame.left - 1 && image.right <= frame.right + 1;
-    }), true, 'The entire image element must fit inside its reserved cover frame');
+      const frame = el.closest('.card-art').getBoundingClientRect();
+      return Math.abs(image.top - frame.top) <= 1 && Math.abs(image.bottom - frame.bottom) <= 1 && Math.abs(image.left - frame.left) <= 1 && Math.abs(image.right - frame.right) <= 1;
+    }), true, 'The PDF image must fill the entire card cover area');
   }
   const landscape = page.getByRole('img', { name: 'First page of BPSC School Teacher TRE 4.0', exact: true });
   assert.ok(await landscape.evaluate(img => img.naturalWidth > img.naturalHeight));
@@ -110,12 +110,12 @@ try {
   for (const img of await covers.all()) {
     await img.scrollIntoViewIfNeeded();
     await expect(img).toBeVisible();
-    assert.equal(await img.evaluate(el => getComputedStyle(el).objectFit), 'contain');
+    assert.equal(await img.evaluate(el => getComputedStyle(el).objectFit), 'cover');
     assert.equal(await img.evaluate(el => {
       const image = el.getBoundingClientRect();
-      const frame = el.parentElement.getBoundingClientRect();
-      return image.top >= frame.top - 1 && image.bottom <= frame.bottom + 1 && image.left >= frame.left - 1 && image.right <= frame.right + 1;
-    }), true, 'Mobile covers must fit inside their reserved frame');
+      const frame = el.closest('.card-art').getBoundingClientRect();
+      return Math.abs(image.top - frame.top) <= 1 && Math.abs(image.bottom - frame.bottom) <= 1 && Math.abs(image.left - frame.left) <= 1 && Math.abs(image.right - frame.right) <= 1;
+    }), true, 'Mobile PDF images must fill the entire card cover area');
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   // Delay the image to verify the loading state before the real cover arrives.
@@ -155,7 +155,7 @@ try {
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(cardCover).toBeVisible();
-  assert.equal(await cardCover.evaluate(img => getComputedStyle(img).objectFit), 'contain');
+  assert.equal(await cardCover.evaluate(img => getComputedStyle(img).objectFit), 'cover');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.getByRole('button', { name: 'Toggle navigation' }).click();
   await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible();
