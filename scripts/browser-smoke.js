@@ -131,6 +131,12 @@ try {
   await page.getByRole('textbox', { name: 'Search notes' }).fill('CTET');
   await expect(page.locator('.note-card')).toHaveCount(1);
   await page.getByRole('button', { name: 'Preview', exact: true }).click();
+  const unlockMessage = page.getByText('Unlock the PDF', { exact: true });
+  await expect(unlockMessage).toBeInViewport();
+  await expect(page.getByText('Complete payment to download the full PDF.', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(unlockMessage).toBeInViewport();
+  await page.setViewportSize({ width: 1280, height: 900 });
   const previewImage = page.getByRole('img', { name: 'Preview page 2 of CTET Preparation Notes', exact: true });
   await expect(previewImage).toBeVisible();
   await expect(previewImage).toHaveJSProperty('naturalWidth', 1000);
