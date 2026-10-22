@@ -7,7 +7,6 @@ import { loadEnvFile } from 'node:process';
 import { createStore } from './store.js';
 import { createPostgresStore } from './postgres-store.js';
 import { createCloudFiles } from './cloud-files.js';
-import { categories } from './seed.js';
 import { renderPreview } from './pdf-preview.js';
 import { createPreviewStorage, ensureStoredPreview, previewUrl, previewVersion } from './stored-previews.js';
 import { razorpayGateway, capturedPaymentMatches } from './payments.js';
@@ -19,11 +18,11 @@ function text(value, label, min = 1, max = 200) {
   return value.trim();
 }
 function validateNote(body) {
-  if (!categories.includes(body.category)) throw fail(400, 'Choose a valid exam category.');
+  const category = text(body.category, 'Category', 1, 80);
   for (const key of ['price', 'originalPrice', 'pages', 'chapters']) if (!Number.isInteger(body[key]) || body[key] < 1 || body[key] > 100000) throw fail(400, `${key} must be a positive whole number below 100001.`);
   if (body.originalPrice < body.price) throw fail(400, 'Original price cannot be less than sale price.');
   if (typeof body.published !== 'boolean') throw fail(400, 'Published must be true or false.');
-  return { title: text(body.title, 'Title', 3, 100), category: body.category, description: text(body.description, 'Description', 5, 300), topics: text(body.topics, 'Topics', 3, 250), badge: text(body.badge, 'Badge', 1, 40), language: text(body.language, 'Language', 2, 50), price: body.price, originalPrice: body.originalPrice, pages: body.pages, chapters: body.chapters, published: body.published };
+  return { title: text(body.title, 'Title', 3, 100), category, description: text(body.description, 'Description', 5, 300), topics: text(body.topics, 'Topics', 3, 250), badge: text(body.badge, 'Badge', 1, 40), language: text(body.language, 'Language', 2, 50), price: body.price, originalPrice: body.originalPrice, pages: body.pages, chapters: body.chapters, published: body.published };
 }
 async function jsonBody(req) {
   if (!req.headers['content-type']?.includes('application/json')) throw fail(415, 'Use application/json.');

@@ -172,6 +172,26 @@ try {
   await page.goto(base + '/admin/');
   await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.getByRole('button', { name: 'Catalogue', exact: true }).click();
+  await page.getByRole('button', { name: 'Add notes', exact: true }).click();
+  await page.getByLabel('Title', { exact: true }).fill('Railway custom notes');
+  await page.getByRole('combobox', { name: /^Category/ }).selectOption({ label: 'Other' });
+  await page.getByLabel('Custom category', { exact: true }).fill('Railway परीक्षा');
+  await page.getByLabel('Description', { exact: true }).fill('Study material for railway exams.');
+  await page.getByLabel('Topics', { exact: true }).fill('Reasoning and mathematics');
+  await page.getByRole('button', { name: 'Save notes', exact: true }).click();
+  const customRow = page.getByRole('row').filter({ hasText: 'Railway custom notes' });
+  await expect(customRow).toContainText('Railway परीक्षा');
+  await customRow.getByRole('button', { name: 'Edit Railway custom notes', exact: true }).click();
+  await expect(page.getByLabel('Custom category', { exact: true })).toHaveValue('Railway परीक्षा');
+  await page.getByRole('button', { name: 'Save notes', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Edit notes', exact: true })).toHaveCount(0);
+  await page.goto(base + '/frontend/');
+  await page.locator('.category-tabs').getByRole('button', { name: 'Railway परीक्षा', exact: true }).click();
+  await expect(page.locator('.note-card')).toHaveCount(1);
+  await expect(page.locator('.note-card')).toContainText('Railway custom notes');
+  await expect(page.locator('.card-category')).toHaveText('Railway परीक्षा');
+  await expect(page.locator('.footer-categories').getByRole('button', { name: 'Railway परीक्षा', exact: true })).toBeVisible();
   assert.deepEqual(errors, []);
   console.log('PASS: covers for all five categories, Home/All Notes, portrait/landscape, loading/error placeholders, mobile cards, admin upload/replacement/CRUD, PDF preview and authorised download/payment flow.');
 } finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); await rm(dataDir, { recursive: true, force: true }); }

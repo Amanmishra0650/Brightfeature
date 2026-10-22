@@ -59,8 +59,13 @@ test('API protects admin changes and persists validated demo transactions', asyn
     assert.equal((await fetch(base + '/api/notes/pet/preview/3')).status, 404);
     assert.equal((await fetch(base + '/api/notes/pet/preview/1')).headers.get('content-type'), 'image/png');
     assert.equal((await request('/admin/notes', 'POST', { title: '' }, cookie)).status, 400);
-    const added = await request('/admin/notes', 'POST', { ...notes.body[0], title: 'New demo notes', id: undefined }, cookie);
+    for (const category of ['', '   ', 'x'.repeat(81), null]) {
+      assert.equal((await request('/admin/notes', 'POST', { ...notes.body[0], category }, cookie)).status, 400);
+    }
+    const added = await request('/admin/notes', 'POST', { ...notes.body[0], title: 'New demo notes', category: '  रेलवे परीक्षा  ', id: undefined }, cookie);
     assert.equal(added.status, 201);
+    assert.equal(added.body.category, 'रेलवे परीक्षा');
+    assert.equal((await request('/notes')).body.find(note => note.id === added.body.id).category, 'रेलवे परीक्षा');
     const hidden = await request('/admin/notes/' + added.body.id, 'PUT', { ...added.body, published: false }, cookie);
     assert.equal(hidden.status, 200);
     assert.equal((await request('/notes')).body.length, 5);
