@@ -134,10 +134,18 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
         const raw = Buffer.concat(chunks);
         if (!gateway.verifyWebhook(raw, req.headers['x-razorpay-signature'])) throw fail(401, 'Invalid webhook signature.');
         let event; try { event = JSON.parse(raw); } catch { throw fail(400, 'Invalid webhook JSON.'); }
+        // Razorpay order.paid may include an order entity but no payment entity.
+        // Only reconcile events carrying a payment ID; a signed notification is
+        // not sufficient on its own to grant access to the private PDF.
         if (['payment.captured', 'order.paid'].includes(event.event)) {
           const entity = event.payload?.payment?.entity;
-          const order = (await store.read()).orders.find(item => item.gatewayOrderId === entity?.order_id);
-          if (order && order.status !== 'Cancelled') await markPaid(order.id, await gateway.fetchPayment(entity.id));
+          if (entity?.id && entity?.order_id) {
+            const order = (await store.read()).orders.find(item => item.gatewayOrderId === entity.order_id);
+            if (order && order.status !== 'Cancelled') {
+              const payment = await gateway.fetchPayment(entity.id);
+              await markPaid(order.id, payment);
+            }
+          }
         }
         return send(200, { ok: true });
       }
