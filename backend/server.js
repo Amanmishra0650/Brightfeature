@@ -1,5 +1,6 @@
 import { activeSale, notePrice } from '../shared/sale.js';
 import http from 'node:http';
+import { loadImage } from '@napi-rs/canvas';
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
@@ -27,10 +28,10 @@ function validateNote(body) {
   if (body.saleEligible !== undefined && typeof body.saleEligible !== 'boolean') throw fail(400, 'Sale eligibility must be true or false.');
   return { title: text(body.title, 'Title', 3, 100), category, description: text(body.description, 'Description', 5, 300), topics: text(body.topics, 'Topics', 3, 250), badge: text(body.badge, 'Badge', 1, 40), language: text(body.language, 'Language', 2, 50), price: body.price, originalPrice: body.originalPrice, pages: body.pages, chapters: body.chapters, published: body.published, ...(body.saleEligible === undefined ? {} : { saleEligible: body.saleEligible }), ...(body.trending === undefined ? {} : { trending: body.trending }) };
 }
-async function jsonBody(req) {
+async function jsonBody(req, limit = 20000) {
   if (!req.headers['content-type']?.includes('application/json')) throw fail(415, 'Use application/json.');
   let body = '';
-  for await (const chunk of req) { body += chunk; if (Buffer.byteLength(body) > 20000) throw fail(413, 'Request is too large.'); }
+  for await (const chunk of req) { body += chunk; if (Buffer.byteLength(body) > limit) throw fail(413, 'Request is too large.'); }
   try { const parsed = JSON.parse(body || '{}'); if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw Error(); return parsed; } catch { throw fail(400, 'Invalid JSON object.'); }
 }
 export async function createApp({ dataDir = resolve(root, 'backend/data'), adminPassword = process.env.ADMIN_PASSWORD, gateway = razorpayGateway(), databaseUrl = process.env.DATABASE_URL, blobStoreId = process.env.BLOB_STORE_ID, oidcToken = process.env.VERCEL_OIDC_TOKEN } = {}) {
@@ -150,7 +151,16 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
         if (new URL(req.headers.origin).host !== host) throw fail(403, 'Origin is not allowed.');
       }
       if (path === '/api/health') return send(200, { ok: true, mode: 'demo' });
-      if (path === '/api/notes' && method === 'GET') return send(200, (await store.read()).notes.filter(note => note.published).map(({ file, ...note }) => ({ ...note, trending: note.trending === true, hasFile: Boolean(file), coverUrl: previewUrl({ ...note, file }), pages: file?.pageCount || note.pages })));
+      if (path === '/api/notes' && method === 'GET') return send(200, (await store.read()).notes.filter(note => note.published).map(({ file, banner, ...note }) => ({ ...note, trending: note.trending === true, hasFile: Boolean(file), coverUrl: banner ? `/api/notes/${encodeURIComponent(note.id)}/banner?v=${banner.id}` : previewUrl({ ...note, file }), pages: file?.pageCount || note.pages })));
+      const bannerMatch = path.match(/^\/api\/notes\/([^/]+)\/banner$/);
+      if (bannerMatch && method === 'GET') {
+        const note = (await store.read()).notes.find(item => item.id === bannerMatch[1] && item.published);
+        if (!note?.banner || (url.searchParams.has('v') && url.searchParams.get('v') !== note.banner.id)) throw fail(404, 'Banner not found.');
+        const content = await previewStorage.read(note.banner.pages[0]);
+        res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' });
+        res.end(content);
+        return;
+      }
       const previewMatch = path.match(/^\/api\/notes\/([^/]+)\/preview(?:\/([1-4]))?$/);
       if (previewMatch && method === 'GET') {
         const note = (await store.read()).notes.find(item => item.id === previewMatch[1] && item.published);
@@ -256,6 +266,33 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
         if (path === '/api/admin/notes' && method === 'GET') return send(200, (await store.read()).notes);
         if (path === '/api/admin/orders' && method === 'GET') return send(200, (await store.read()).orders);
         if (path === '/api/admin/upload-config' && method === 'GET') return send(200, { mode: cloud ? 'cloud' : 'local', maxBytes: 50 * 1024 * 1024 });
+        const bannerUploadMatch = path.match(/^\/api\/admin\/notes\/([^/]+)\/banner$/);
+        if (bannerUploadMatch && method === 'PUT') {
+          const { image } = await jsonBody(req, 3 * 1024 * 1024);
+          if (typeof image !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(image) || image.length % 4 !== 0) throw fail(400, 'Select a valid banner image.');
+          const png = Buffer.from(image, 'base64');
+          if (png.length < 33 || png.length > 2 * 1024 * 1024 || png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || png.toString('ascii', 12, 16) !== 'IHDR') throw fail(400, 'Banner must be a valid PNG no larger than 2 MB.');
+          const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
+          if (!width || !height || width > 1200 || height > 1200) throw fail(400, 'Banner dimensions are invalid.');
+          try { await loadImage(png); } catch { throw fail(400, 'The banner image could not be decoded.'); }
+          const banner = await previewStorage.save({ pages: [png] });
+          let previous;
+          let updated;
+          try {
+            updated = await store.update(data => {
+              const note = data.notes.find(item => item.id === bannerUploadMatch[1]);
+              if (!note) throw fail(404, 'Notes not found.');
+              previous = note.banner;
+              note.banner = banner;
+              return note;
+            });
+          } catch (error) {
+            await previewStorage.remove(banner);
+            throw error;
+          }
+          if (previous) await previewStorage.remove(previous);
+          return send(200, updated);
+        }
         const backfillMatch = path.match(/^\/api\/admin\/notes\/([^/]+)\/preview$/);
         if (backfillMatch && method === 'POST') {
           const note = (await store.read()).notes.find(item => item.id === backfillMatch[1]);
@@ -376,17 +413,18 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
         const noteMatch = path.match(/^\/api\/admin\/notes\/([^/]+)$/);
         if (noteMatch && ['PUT', 'DELETE'].includes(method)) {
           const body = method === 'PUT' ? validateNote(await jsonBody(req)) : null;
-          let removedFile;
+          let removedFile, removedBanner;
           const result = await store.update(data => {
             const index = data.notes.findIndex(note => note.id === noteMatch[1]);
             if (index < 0) throw fail(404, 'Notes not found.');
-            if (method === 'DELETE') { removedFile = data.notes[index].file; data.notes.splice(index, 1); return { ok: true }; }
-            return data.notes[index] = { trending: data.notes[index].trending === true, saleEligible: data.notes[index].saleEligible === true, ...body, id: noteMatch[1], ...(data.notes[index].file ? { file: data.notes[index].file } : {}) };
+            if (method === 'DELETE') { removedFile = data.notes[index].file; removedBanner = data.notes[index].banner; data.notes.splice(index, 1); return { ok: true }; }
+            return data.notes[index] = { trending: data.notes[index].trending === true, saleEligible: data.notes[index].saleEligible === true, ...body, id: noteMatch[1], ...(data.notes[index].file ? { file: data.notes[index].file } : {}), ...(data.notes[index].banner ? { banner: data.notes[index].banner } : {}) };
           });
           if (removedFile) {
             await removePdf(removedFile.storageName).catch(error => { if (error.code !== 'ENOENT') console.error(error); });
             await previewStorage.remove(removedFile.preview);
           }
+          if (removedBanner) await previewStorage.remove(removedBanner);
           return send(200, result);
         }
         const orderMatch = path.match(/^\/api\/admin\/orders\/([^/]+)$/);
