@@ -23,7 +23,7 @@ export default function CheckoutModal({ modal, user, setUser, onClose, onSuccess
       let student = user;
       if (!student) { const form = new FormData(event.currentTarget); student = await api('/session', { method: 'POST', body: { name: form.get('name'), email: form.get('email') } }); setUser(student); }
       if (!checkout) { onLogin(); return; }
-      const order = await api('/orders', { method: 'POST', body: { noteId: modal.note.id } });
+      const order = await api('/orders', { method: 'POST', body: { noteId: modal.note.id, expectedAmount: modal.note.price } });
       if (order.status === 'Paid' && order.paymentVerified) { onSuccess(order); return; }
       const payment = await api('/payments/create', { method: 'POST', body: { orderId: order.id } });
       if (payment.canDownload) { onSuccess(payment); return; }

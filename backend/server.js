@@ -1,3 +1,4 @@
+import { activeSale, notePrice } from '../shared/sale.js';
 import http from 'node:http';
 import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { mkdir, readFile, writeFile, unlink } from 'node:fs/promises';
@@ -23,7 +24,8 @@ function validateNote(body) {
   if (body.originalPrice < body.price) throw fail(400, 'Original price cannot be less than sale price.');
   if (typeof body.published !== 'boolean') throw fail(400, 'Published must be true or false.');
   if (body.trending !== undefined && typeof body.trending !== 'boolean') throw fail(400, 'Trending must be true or false.');
-  return { title: text(body.title, 'Title', 3, 100), category, description: text(body.description, 'Description', 5, 300), topics: text(body.topics, 'Topics', 3, 250), badge: text(body.badge, 'Badge', 1, 40), language: text(body.language, 'Language', 2, 50), price: body.price, originalPrice: body.originalPrice, pages: body.pages, chapters: body.chapters, published: body.published, ...(body.trending === undefined ? {} : { trending: body.trending }) };
+  if (body.saleEligible !== undefined && typeof body.saleEligible !== 'boolean') throw fail(400, 'Sale eligibility must be true or false.');
+  return { title: text(body.title, 'Title', 3, 100), category, description: text(body.description, 'Description', 5, 300), topics: text(body.topics, 'Topics', 3, 250), badge: text(body.badge, 'Badge', 1, 40), language: text(body.language, 'Language', 2, 50), price: body.price, originalPrice: body.originalPrice, pages: body.pages, chapters: body.chapters, published: body.published, ...(body.saleEligible === undefined ? {} : { saleEligible: body.saleEligible }), ...(body.trending === undefined ? {} : { trending: body.trending }) };
 }
 async function jsonBody(req) {
   if (!req.headers['content-type']?.includes('application/json')) throw fail(415, 'Use application/json.');
@@ -207,9 +209,13 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
             const note = data.notes.find(item => item.id === body.noteId && item.published);
             if (!note) throw fail(404, 'These notes are no longer available.');
             if (!note.file) throw fail(409, 'The PDF has not been uploaded yet. Please try another study pack.');
-            const existing = data.orders.find(item => item.userId === student.user.id && item.noteId === note.id && (hasAccess(item) || (item.status === 'Pending' && item.amount === note.price)));
+            const paid = data.orders.find(item => item.userId === student.user.id && item.noteId === note.id && hasAccess(item));
+            if (paid) return paid;
+            const amount = notePrice(note, activeSale(data.settings));
+            if (body.expectedAmount !== undefined && body.expectedAmount !== amount) throw fail(409, 'The price has changed. Refresh the page and review the latest price before paying.');
+            const existing = data.orders.find(item => item.userId === student.user.id && item.noteId === note.id && item.status === 'Pending' && item.amount === amount);
             if (existing) return existing;
-            const item = { id: 'BF-' + randomBytes(5).toString('hex').toUpperCase(), userId: student.user.id, name: student.user.name, email: student.user.email, noteId: note.id, title: note.title, amount: note.price, status: 'Pending', createdAt: new Date().toISOString() };
+            const item = { id: 'BF-' + randomBytes(5).toString('hex').toUpperCase(), userId: student.user.id, name: student.user.name, email: student.user.email, noteId: note.id, title: note.title, amount, status: 'Pending', createdAt: new Date().toISOString() };
             data.orders.unshift(item); return item;
           });
           return send(201, order);
@@ -352,7 +358,18 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
         if (path === '/api/admin/settings' && method === 'PUT') {
           const body = await jsonBody(req);
           if (!Number.isInteger(body.discount) || body.discount < 0 || body.discount > 90) throw fail(400, 'Discount must be between 0 and 90.');
-          const settings = { phone: '9161868600', offerTitle: text(body.offerTitle, 'Offer title', 3, 100), offerSubtitle: text(body.offerSubtitle, 'Offer description', 3, 250), discount: body.discount };
+          if (body.saleEnabled !== undefined && typeof body.saleEnabled !== 'boolean') throw fail(400, 'Invalid sale status.');
+          if (body.saleScope !== undefined && !['all', 'selected'].includes(body.saleScope)) throw fail(400, 'Invalid sale scope.');
+          const readSaleTime = value => {
+            if (value === undefined || value === '') return '';
+            if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString() !== value) throw fail(400, 'Invalid sale date or time.');
+            return value;
+          };
+          const saleStartsAt = readSaleTime(body.saleStartsAt);
+          const saleEndsAt = readSaleTime(body.saleEndsAt);
+          if ((saleStartsAt || saleEndsAt || body.saleEnabled) && (!saleStartsAt || !saleEndsAt || saleStartsAt >= saleEndsAt)) throw fail(400, 'Set both sale times and make the end later than the start.');
+          if (body.saleEnabled && body.discount < 1) throw fail(400, 'An enabled sale needs a discount greater than zero.');
+          const settings = { saleEnabled: body.saleEnabled === true, saleScope: body.saleScope || 'selected', saleStartsAt, saleEndsAt, phone: '9161868600', offerTitle: text(body.offerTitle, 'Offer title', 3, 100), offerSubtitle: text(body.offerSubtitle, 'Offer description', 3, 250), discount: body.discount };
           await store.update(data => { data.settings = settings; }); return send(200, settings);
         }
         if (path === '/api/admin/notes' && method === 'POST') { const note = { ...validateNote(await jsonBody(req)), id: randomUUID() }; await store.update(data => data.notes.push(note)); return send(201, note); }
@@ -364,7 +381,7 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
             const index = data.notes.findIndex(note => note.id === noteMatch[1]);
             if (index < 0) throw fail(404, 'Notes not found.');
             if (method === 'DELETE') { removedFile = data.notes[index].file; data.notes.splice(index, 1); return { ok: true }; }
-            return data.notes[index] = { trending: data.notes[index].trending === true, ...body, id: noteMatch[1], ...(data.notes[index].file ? { file: data.notes[index].file } : {}) };
+            return data.notes[index] = { trending: data.notes[index].trending === true, saleEligible: data.notes[index].saleEligible === true, ...body, id: noteMatch[1], ...(data.notes[index].file ? { file: data.notes[index].file } : {}) };
           });
           if (removedFile) {
             await removePdf(removedFile.storageName).catch(error => { if (error.code !== 'ENOENT') console.error(error); });
