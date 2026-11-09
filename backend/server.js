@@ -19,6 +19,12 @@ function text(value, label, min = 1, max = 200) {
   if (typeof value !== 'string' || value.trim().length < min || value.trim().length > max) throw fail(400, `${label} must be ${min}–${max} characters.`);
   return value.trim();
 }
+function studentPhone(value) {
+  const phone = text(value, 'Phone number', 10, 32).replace(/[\s()-]/g, '');
+  const match = /^(?:\+91|91|0)?([6-9][0-9]{9})$/.exec(phone);
+  if (!match) throw fail(400, 'Enter a valid 10-digit Indian mobile number.');
+  return '+91' + match[1];
+}
 function validateNote(body) {
   const category = text(body.category, 'Category', 1, 80);
   for (const key of ['price', 'originalPrice', 'pages', 'chapters']) if (!Number.isInteger(body[key]) || body[key] < 1 || body[key] > 100000) throw fail(400, `${key} must be a positive whole number below 100001.`);
@@ -189,10 +195,20 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
           await throttle(req, 'student-session', 20, 3600000);
           const body = await jsonBody(req);
           const name = text(body.name, 'Name', 2, 80);
-          const email = text(body.email, 'Email', 5, 120).toLowerCase();
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail(400, 'Enter a valid email address.');
-          const user = { id: randomUUID(), name, email };
+          const user = { id: randomUUID(), name, phone: studentPhone(body.phone) };
           await setSession(res, 'student', user); return send(201, user);
+        }
+        if (method === 'PATCH') {
+          const student = await session(req, 'student');
+          if (!student) throw fail(401, 'Start a student session first.');
+          const phone = studentPhone((await jsonBody(req)).phone);
+          const user = await store.update(data => {
+            const entry = data.sessions?.[tokenHash(student.token)];
+            if (!entry || entry.expires <= Date.now()) throw fail(401, 'Start a student session first.');
+            const { id, name } = entry.user;
+            return entry.user = { id, name, phone: entry.user.phone || phone };
+          });
+          return send(200, user);
         }
         if (method === 'DELETE') { const existing = (await session(req, 'student')); if (existing) await store.update(data => { delete data.sessions?.[tokenHash(existing.token)]; }); res.setHeader('Set-Cookie', 'bf_student=; HttpOnly; SameSite=Strict; Path=/api; Max-Age=0'); return send(200, { ok: true }); }
       }
@@ -224,8 +240,9 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
             const amount = notePrice(note, activeSale(data.settings));
             if (body.expectedAmount !== undefined && body.expectedAmount !== amount) throw fail(409, 'The price has changed. Refresh the page and review the latest price before paying.');
             const existing = data.orders.find(item => item.userId === student.user.id && item.noteId === note.id && item.status === 'Pending' && item.amount === amount);
-            if (existing) return existing;
-            const item = { id: 'BF-' + randomBytes(5).toString('hex').toUpperCase(), userId: student.user.id, name: student.user.name, email: student.user.email, noteId: note.id, title: note.title, amount, status: 'Pending', createdAt: new Date().toISOString() };
+            const phone = studentPhone(student.user.phone);
+            if (existing) { existing.phone ||= phone; return existing; }
+            const item = { id: 'BF-' + randomBytes(5).toString('hex').toUpperCase(), userId: student.user.id, name: student.user.name, phone, noteId: note.id, title: note.title, amount, status: 'Pending', createdAt: new Date().toISOString() };
             data.orders.unshift(item); return item;
           });
           return send(201, order);

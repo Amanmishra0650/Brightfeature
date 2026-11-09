@@ -38,7 +38,7 @@ export default function App() {
   }
   const needle = query.trim().toLowerCase();
   const filteredNotes = notes.filter(n => `${n.title} ${n.category}`.toLowerCase().includes(needle));
-  const filteredOrders = orders.filter(o => `${o.id} ${o.name} ${o.email} ${o.title} ${o.status}`.toLowerCase().includes(needle));
+  const filteredOrders = orders.filter(o => `${o.id} ${o.name} ${o.phone ?? ''} ${o.email ?? ''} ${o.title} ${o.status}`.toLowerCase().includes(needle));
   const change = (key, value) => setEditor(current => ({ ...current, [key]: value }));
   if (checking) return <main className="admin-loading" role="status">Loading admin session…</main>;
   if (!user) return <main className="admin-login"><div className="admin-login-card"><Brand/><span className="admin-eyebrow">BRIGHT FUTURE • ADMINISTRATION</span><h1>Welcome back.</h1><p>Manage your notes, orders, and offers.</p><form onSubmit={login}><Field label="Password"><input type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={e => setPassword(e.target.value)}/></Field><ErrorMessage message={error}/><button className="admin-primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button></form><p className="admin-muted">Local demo credentials are documented in the project README.</p><a href="/frontend/">← Back to storefront</a></div><div className="admin-login-art"><BookOpen size={64}/><h2>A brighter future,<br/>behind every page.</h2><p>Your workspace for better learning.</p></div></main>;
@@ -63,7 +63,7 @@ export default function App() {
 
 function SearchField({ value, onChange, label }) { return <label className="admin-search"><Search size={19}/><input type="search" aria-label={label} placeholder={label} value={value} onChange={e => onChange(e.target.value)}/></label>; }
 function OrderTable({ orders, onStatus, busy }) {
-  return orders.length ? <div className="admin-table-wrap"><table><thead><tr><th>Order / student</th><th>Notes</th><th>Amount</th><th>Status</th></tr></thead><tbody>{orders.map(o => <tr key={o.id}><td><strong>{o.name}</strong><small>{o.email}</small><small>{o.id} · {new Date(o.createdAt).toLocaleDateString('en-IN')}</small></td><td>{o.title}</td><td>{money(o.amount)}</td><td>{onStatus ? <select aria-label={`Status for ${o.id}`} value={o.status} disabled={busy} onChange={e => onStatus(o, e.target.value)}>{[...new Set([o.status, 'Pending', 'Cancelled'])].map(s => <option key={s}>{s}</option>)}</select> : <span className={`admin-status ${o.status === 'Paid' ? 'good' : ''}`}>{o.status}</span>}</td></tr>)}</tbody></table></div> : <Empty title="No orders found">Orders will appear here when students try checkout.</Empty>;
+  return orders.length ? <div className="admin-table-wrap"><table><thead><tr><th>Order / student</th><th>Notes</th><th>Amount</th><th>Status</th></tr></thead><tbody>{orders.map(o => <tr key={o.id}><td><strong>{o.name}</strong><small>{o.phone || o.email || '—'}</small><small>{o.id} · {new Date(o.createdAt).toLocaleDateString('en-IN')}</small></td><td>{o.title}</td><td>{money(o.amount)}</td><td>{onStatus ? <select aria-label={`Status for ${o.id}`} value={o.status} disabled={busy} onChange={e => onStatus(o, e.target.value)}>{[...new Set([o.status, 'Pending', 'Cancelled'])].map(s => <option key={s}>{s}</option>)}</select> : <span className={`admin-status ${o.status === 'Paid' ? 'good' : ''}`}>{o.status}</span>}</td></tr>)}</tbody></table></div> : <Empty title="No orders found">Orders will appear here when students try checkout.</Empty>;
 }
 
 async function encodeBanner(file) {

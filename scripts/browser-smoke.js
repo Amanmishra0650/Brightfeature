@@ -151,7 +151,7 @@ try {
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('button', { name: 'Buy now', exact: true }).click();
   await page.getByLabel('Your name').fill('Browser Student');
-  await page.getByLabel('Email address').fill('browser@example.com');
+  await page.getByLabel('Mobile number').fill('9876543210');
   const signature = createHmac('sha256', 'browser-secret').update('order_browser|pay_browser').digest('hex');
   await page.route('https://checkout.razorpay.com/v1/checkout.js', route => route.fulfill({ contentType: 'application/javascript', body: `window.Razorpay = class { constructor(options) { this.options = options; } open() { this.options.handler({razorpay_order_id:'order_browser',razorpay_payment_id:'pay_browser',razorpay_signature:'${signature}'}); } };` }));
   await page.getByRole('button', { name: /Pay .* with Razorpay/ }).click();

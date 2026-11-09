@@ -70,12 +70,15 @@ test('API protects admin changes and persists validated demo transactions', asyn
     assert.equal(hidden.status, 200);
     assert.equal((await request('/notes')).body.length, 5);
     assert.equal((await request('/orders', 'POST', { noteId: notes.body[0].id })).status, 401);
-    assert.equal((await request('/session', 'POST', { name: 'A', email: 'bad' })).status, 400);
-    const student = await request('/session', 'POST', { name: 'Test Student', email: 'student@example.com' });
+    assert.equal((await request('/session', 'POST', { name: 'Test Student', phone: '12345' })).status, 400);
+    const student = await request('/session', 'POST', { name: 'Test Student', phone: '9876543210' });
     const order = await request('/orders', 'POST', { noteId: notes.body[0].id, amount: 1 }, student.cookie);
     assert.equal(order.status, 201);
     assert.equal(order.body.amount, notes.body[0].price);
     assert.equal(order.body.status, 'Pending');
+    assert.equal(student.body.phone, '+919876543210');
+    assert.equal(order.body.phone, '+919876543210');
+    assert.equal('email' in order.body, false);
     const downloadPath = base + '/api/orders/' + order.body.id + '/download';
     assert.equal((await fetch(downloadPath)).status, 401);
     assert.equal((await fetch(downloadPath, { headers: { cookie: student.cookie } })).status, 403);
@@ -108,7 +111,7 @@ test('API protects admin changes and persists validated demo transactions', asyn
     const webhook = await fetch(base + '/api/payments/webhook', { method: 'POST', headers: { 'x-razorpay-signature': createHmac('sha256', 'webhook-fixture').update(event).digest('hex') }, body: event });
     assert.equal(webhook.status, 200);
     assert.equal((await request('/orders', 'GET', undefined, student.cookie)).body.length, 1);
-    const other = await request('/session', 'POST', { name: 'Other Student', email: 'student@example.com' });
+    const other = await request('/session', 'POST', { name: 'Other Student', phone: '+91 98765 43210' });
     assert.equal((await request('/orders', 'GET', undefined, other.cookie)).body.length, 0);
     assert.equal((await fetch(downloadPath, { headers: { cookie: other.cookie } })).status, 404);
     await request('/admin/orders/' + order.body.id, 'PUT', { status: 'Cancelled' }, cookie);

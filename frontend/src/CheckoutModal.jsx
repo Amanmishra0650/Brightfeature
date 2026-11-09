@@ -21,7 +21,12 @@ export default function CheckoutModal({ modal, user, setUser, onClose, onSuccess
     let dialog;
     try {
       let student = user;
-      if (!student) { const form = new FormData(event.currentTarget); student = await api('/session', { method: 'POST', body: { name: form.get('name'), email: form.get('email') } }); setUser(student); }
+      if (!student?.phone) {
+        const form = new FormData(event.currentTarget);
+        const phone = form.get('phone');
+        student = await api('/session', student ? { method: 'PATCH', body: { phone } } : { method: 'POST', body: { name: form.get('name'), phone } });
+        setUser(student);
+      }
       if (!checkout) { onLogin(); return; }
       const order = await api('/orders', { method: 'POST', body: { noteId: modal.note.id, expectedAmount: modal.note.price } });
       if (order.status === 'Paid' && order.paymentVerified) { onSuccess(order); return; }
@@ -30,7 +35,7 @@ export default function CheckoutModal({ modal, user, setUser, onClose, onSuccess
       await loadRazorpay();
       dialog = document.querySelector('dialog[open]'); dialog?.close();
       const result = await new Promise((resolve, reject) => {
-        const instance = new window.Razorpay({ key: payment.keyId, order_id: payment.gatewayOrderId, amount: payment.amount, currency: payment.currency, name: 'Bright Future Notes', description: modal.note.title, prefill: { name: student.name, email: student.email }, theme: { color: '#073b8f' }, handler: resolve, modal: { ondismiss: () => reject(new Error('Payment was not completed. Your PDF remains locked.')) } });
+        const instance = new window.Razorpay({ key: payment.keyId, order_id: payment.gatewayOrderId, amount: payment.amount, currency: payment.currency, name: 'Bright Future Notes', description: modal.note.title, prefill: { name: student.name, contact: student.phone }, theme: { color: '#073b8f' }, handler: resolve, modal: { ondismiss: () => reject(new Error('Payment was not completed. Your PDF remains locked.')) } });
         instance.open();
       });
       const verified = await api('/payments/verify', { method: 'POST', body: { orderId: order.id, ...result } });
@@ -40,7 +45,7 @@ export default function CheckoutModal({ modal, user, setUser, onClose, onSuccess
   }
   return <Modal title={checkout ? 'Unlock your full PDF' : 'Welcome to Bright Future'} onClose={() => { if (!busy) onClose(); }}>
     {checkout && <div className="checkout-summary"><div><h3>{modal.note.title}</h3><p>The same PDF uploaded by the institute.</p></div><strong>{money(modal.note.price)}</strong></div>}
-    <form onSubmit={submit}>{!user && <><Field label="Your name"><input name="name" required minLength={2} maxLength={80} autoComplete="name"/></Field><Field label="Email address"><input name="email" type="email" required maxLength={120} autoComplete="email"/></Field></>}
+    <form onSubmit={submit}>{!user && <Field label="Your name"><input name="name" required minLength={2} maxLength={80} autoComplete="name"/></Field>}{!user?.phone && <Field label="Mobile number"><input name="phone" type="tel" inputMode="tel" required minLength={10} maxLength={32} autoComplete="tel" placeholder="10-digit mobile number"/></Field>}
       <p className="notice">{checkout ? config?.mode === 'test' ? 'Razorpay test mode. Use test payment details; no real money is charged.' : 'The full PDF unlocks only after payment is confirmed by Razorpay.' : 'Your library is linked to this browser session. Keep your order ID for support.'}</p>
       {checkout && config && !config.enabled && <p className="error-message">Payments are not configured yet. Please contact the institute.</p>}
       <ErrorMessage message={error}/>
