@@ -46,7 +46,7 @@ export default function App() {
   const pricedNotes = notes.map(note => ({ ...note, price: notePrice(note, sale) }));
   const eligibleSale = sale && notes.some((note, index) => pricedNotes[index].price < note.price);
   const remaining = sale ? Math.max(0, Math.ceil((sale.end - now) / 1000)) : 0;
-  const countdown = [Math.floor(remaining / 86400), Math.floor(remaining / 3600) % 24, Math.floor(remaining / 60) % 60, remaining % 60].map((value, i) => String(value).padStart(2, '0') + ['d', 'h', 'm', 's'][i]).join(' : ');
+  const countdown = [Math.floor(remaining / 86400), Math.floor(remaining / 3600) % 24, Math.floor(remaining / 60) % 60, remaining % 60].map(value => String(value).padStart(2, '0'));
   const trendingNotes = pricedNotes.filter(note => note.trending === true && note.hasFile);
   const filtered = pricedNotes.filter(note => (category === 'All Notes' || note.category === category) && (note.title + note.topics).toLowerCase().includes(search.toLowerCase())).sort((a, b) => sort === 'low' ? a.price - b.price : sort === 'high' ? b.price - a.price : 0);
   return <>
@@ -55,7 +55,20 @@ export default function App() {
     <header className="site-header"><div className="container nav-inner"><Brand/><nav className="desktop-nav" aria-label="Main navigation"><a className="active" href="#main">Home</a><a href="#notes" onClick={() => chooseCategory('All Notes')}>All Notes</a><a href="#why-us">Why Bright Future?</a><a href="#help">Contact Us</a></nav><button className="button button-blue login-button" onClick={() => user ? library() : setModal({ type: 'login' })}><UserRound size={17}/>{user ? 'My Library' : 'Login / Register'}</button><button className="icon-button mobile-toggle" onClick={() => setMenu(!menu)} aria-label="Toggle navigation" aria-expanded={menu}>{menu ? <X/> : <Menu/>}</button></div>{menu && <nav className="mobile-nav" aria-label="Mobile navigation"><a href="#main" onClick={() => setMenu(false)}>Home</a><button onClick={() => chooseCategory('All Notes')}>All Notes</button>{availableCategories.map(item => <button key={item} onClick={() => chooseCategory(item)}>{item}</button>)}<a href="#why-us" onClick={() => setMenu(false)}>Why Bright Future?</a></nav>}</header>
     <main id="main">
       <section className="hero"><div className="container hero-inner"><div className="hero-copy"><span className="eyebrow"><span className="tiny-line"/> YOUR AMBITION. OUR COMMITMENT.</span><h1>Prepare better.<br/>Dream bigger.<br/><span>Achieve more.</span><svg className="headline-swoosh" viewBox="0 0 310 15" aria-hidden="true"><path d="M3 12Q155 -5 307 8" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/></svg></h1><p className="hero-description">Your brighter future starts with the right notes.<br className="desktop-break"/> Exam-focused study material, made simple.</p><p className="hindi-copy" lang="hi">आपकी मेहनत, सही दिशा में। सफलता की तैयारी, हमारे साथ।</p><div className="hero-actions"><a className="button button-orange" href="#notes">Explore Notes <ArrowRight size={18}/></a><a className="button button-whatsapp" href={whatsapp('Hello! I would like to know more about Bright Future Notes.')} target="_blank" rel="noreferrer"><MessageCircle size={18}/> Chat on WhatsApp</a></div><div className="hero-reassurance"><span><CheckCircle2/> Exam-oriented</span><span><CheckCircle2/> Hindi + English</span><span><CheckCircle2/> Budget-friendly</span></div></div><div className="hero-visual"><div className="hero-visual-grid"/><div className="book-stack"><div className="back-book"><HeroBook exam="PET" variant={1}/></div><div className="front-book"><HeroBook exam="CTET"/></div></div>{eligibleSale && <div className="offer-sticker"><span>SALE</span><strong>{sale.discount}%</strong><b>OFF</b><small>ON ELIGIBLE NOTES</small></div>}<div className="orbit orbit-one"/><div className="orbit orbit-two"/><span className="visual-star">✦</span></div></div></section>
-      {eligibleSale && <section className="closing-ribbon" aria-label="Scheduled sale"><strong>{settings.offerTitle} · {sale.discount}% off</strong><span>{settings.offerSubtitle}</span><span>Ends in {countdown}</span></section>}
+      {eligibleSale && <section className="sale-banner" aria-labelledby="sale-banner-title">
+        <div className="container sale-banner-inner">
+          <div className="sale-banner-copy">
+            <span className="sale-banner-discount">{sale.discount}% OFF</span>
+            <div><h2 id="sale-banner-title">{settings.offerTitle}</h2><p>{settings.offerSubtitle}</p></div>
+          </div>
+          <div className="sale-banner-countdown">
+            <span className="sale-banner-caption">Offer ends in</span>
+            <div className="sale-banner-clock" role="timer" aria-label="Time left">
+              {['Days', 'Hours', 'Minutes', 'Seconds'].map((unit, i) => <span className="sale-banner-unit" key={unit}><strong>{countdown[i]}</strong><small>{unit}</small></span>)}
+            </div>
+          </div>
+        </div>
+      </section>}
       {trendingNotes.length > 0 && <section className="container notes-section" id="trending-notes" aria-labelledby="trending-notes-title">
         <div className="section-heading"><div><span className="eyebrow">HANDPICKED STUDY MATERIAL</span><h2 id="trending-notes-title">Trending <span>Notes</span></h2></div><a className="button button-outline" href="#notes" onClick={() => chooseCategory('All Notes')}>View all notes <ArrowRight size={16}/></a></div>
         <div className="notes-grid">{trendingNotes.map(note => <NoteCard key={note.id} note={note} onPreview={() => setModal({ type: 'preview', note })} onBuy={() => setModal({ type: 'checkout', note })}/>)}</div>
