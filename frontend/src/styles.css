@@ -62,11 +62,11 @@
 .sale-banner-link { display: inline-flex; align-items: center; gap: 4px; padding-left: 18px; border-left: 1px solid #9fa7b3; text-decoration: underline; white-space: nowrap; }
 .home-hero { background: linear-gradient(120deg,#e6f2fd,#d1e5f8); }
 .home-hero .hero-inner { grid-template-columns: repeat(2,minmax(0,1fr)); gap: clamp(22px,4vw,60px); padding-block: clamp(28px,4vw,64px) clamp(20px,3vw,48px); }
-.home-hero h1 { width: auto; color: #081330; font-size: clamp(32px,6vw,90px); line-height: 1.06; letter-spacing: -.045em; margin: 0 0 14px; }
+.home-hero h1 { width: auto; color: #081330; font-size: clamp(30px,4.8vw,70px); line-height: 1.06; letter-spacing: -.045em; margin: 0 0 14px; }
 .home-hero h1 > span { color: #c94300; }
-.home-hero .hero-description { color: #25334a; font-size: clamp(15px,2vw,25px); line-height: 1.4; margin: 0 0 clamp(20px,3vw,42px); }
+.home-hero .hero-description { color: #25334a; font-size: clamp(14px,1.65vw,20px); line-height: 1.4; margin: 0 0 clamp(20px,3vw,42px); }
 .home-hero .hero-actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
-.home-hero .hero-actions .button { min-height: 48px; border-radius: 7px; font-size: clamp(13px,1.6vw,19px); padding: 10px clamp(13px,2vw,26px); }
+.home-hero .hero-actions .button { min-height: 48px; border-radius: 7px; font-size: clamp(13px,1.3vw,16px); padding: 10px clamp(13px,2vw,26px); }
 .home-hero .button-orange { background: #bd4000; }
 .home-hero .button-whatsapp { border: 1.5px solid #081330; background: #f5faff; color: #081330; }
 .home-hero .button-whatsapp svg { color: #007953; }
@@ -78,6 +78,6 @@
   .sale-banner-link { border: 0; padding-left: 0; }
   .home-hero .hero-inner { grid-template-columns: 1fr; }
   .home-hero .hero-copy { text-align: left; }
-  .home-hero h1 { font-size: clamp(30px,9vw,56px); }
+  .home-hero h1 { font-size: clamp(27px,7.8vw,46px); }
   .home-hero .hero-actions { justify-content: flex-start; }
 }
