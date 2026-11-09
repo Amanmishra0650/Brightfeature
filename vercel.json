@@ -12,6 +12,8 @@
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index?route=:path*" },
+    { "source": "/notes", "destination": "/frontend/index.html" },
+    { "source": "/notes/", "destination": "/frontend/index.html" },
     { "source": "/", "destination": "/frontend/index.html" },
     { "source": "/frontend", "destination": "/frontend/index.html" },
     { "source": "/frontend/", "destination": "/frontend/index.html" },
