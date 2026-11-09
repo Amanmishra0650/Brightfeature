@@ -18,7 +18,7 @@
 .preview-unlock-notice strong{display:block;font-size:16px}
 .preview-unlock-notice p{margin:4px 0 0;font-size:12px;line-height:1.6;color:#536179}
 .notes-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-.card-art{height:220px;flex-shrink:0;background:#f2f5fa}
+.card-art{height:clamp(245px,22vw,320px);flex-shrink:0;background:#f2f5fa}
 .card-content{padding:12px}
 .card-content h3{min-height:0;margin:6px 0;line-height:1.45}
 .card-meta{padding-bottom:8px}
@@ -31,8 +31,8 @@
 .note-cover-loading .note-cover-message{position:absolute;inset:0}
 .note-cover-spinner{width:22px;height:22px;border:2px solid #d7e1ef;border-top-color:var(--blue);border-radius:50%;animation:cover-spin .8s linear infinite}
 @keyframes cover-spin{to{transform:rotate(360deg)}}
-@media(max-width:900px){.notes-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card-art{height:210px}}
-@media(max-width:600px){.notes-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card-art{height:190px}.card-actions{grid-template-columns:1fr}.note-cover-message{font-size:10px}}
+@media(max-width:900px){.notes-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card-art{height:clamp(235px,39vw,300px)}}
+@media(max-width:600px){.notes-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card-art{height:clamp(185px,58vw,245px)}.card-actions{grid-template-columns:1fr}.note-cover-message{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.note-cover-spinner{animation:none}}
 
 /* Keep the homepage hero compact while allowing its content to size the section. */
