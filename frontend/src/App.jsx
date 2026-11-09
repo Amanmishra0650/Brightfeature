@@ -11,8 +11,24 @@ export default function App() {
   const [notes, setNotes] = useState([]), [settings, setSettings] = useState(null), [loading, setLoading] = useState(true), [error, setError] = useState('');
   const [category, setCategory] = useState('All Notes'), [search, setSearch] = useState(''), [sort, setSort] = useState('popular'), [menu, setMenu] = useState(false);
   const [modal, setModal] = useState(null), [user, setUser] = useState(null), [orders, setOrders] = useState([]), [toast, setToast] = useState(''), [openFaq, setOpenFaq] = useState(0);
-  async function load() { setLoading(true); setError(''); try { const [items, config, student] = await Promise.all([api('/notes'), api('/settings'), api('/session')]); setNotes(items); setSettings(config); setUser(student); } catch (e) { setError(e.message); } finally { setLoading(false); } }
-  useEffect(() => { load(); }, []);
+  async function load() {
+    setLoading(true);
+    setError('');
+    try {
+      setNotes(await api('/notes', { signal: AbortSignal.timeout(15000) }));
+    } catch (e) {
+      setError(e.name === 'TimeoutError' ? 'Notes are taking too long to load. Please try again.' : e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    load();
+    let active = true;
+    api('/settings').then(config => { if (active) setSettings(config); }).catch(() => {});
+    api('/session').then(student => { if (active) setUser(current => current ?? student); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
   useEffect(() => { if (toast) { const timer = setTimeout(() => setToast(''), 4500); return () => clearTimeout(timer); } }, [toast]);
   function chooseCategory(value) { setCategory(value); setSearch(''); setMenu(false); document.getElementById('notes')?.scrollIntoView({ behavior: 'smooth' }); }
   async function library() { setModal({ type: 'library', loading: true }); try { setOrders(await api('/orders')); setModal({ type: 'library' }); } catch (e) { setModal({ type: 'library', error: e.message }); } }
