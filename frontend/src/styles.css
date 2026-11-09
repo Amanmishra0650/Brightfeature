@@ -54,19 +54,30 @@
   .hero-book.book-cover { height: 184px; }
 }
 
-.sale-banner { background: #fff5e9; border-block: 1px solid #f1d9bd; color: #102a50; }
-.sale-banner-inner { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 18px; }
-.sale-banner-copy { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.sale-banner-discount { flex: none; background: #9c3f00; color: #fff; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 800; }
-.sale-banner-copy h2 { margin: 0; font-size: clamp(17px, 2vw, 22px); line-height: 1.25; overflow-wrap: anywhere; }
-.sale-banner-copy p { margin: 4px 0 0; color: #4f5d71; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-.sale-banner-countdown { flex: none; display: grid; justify-items: center; gap: 5px; }
-.sale-banner-caption { font-size: 12px; font-weight: 700; }
-.sale-banner-clock { display: grid; grid-template-columns: repeat(4, 56px); gap: 5px; }
-.sale-banner-unit { display: grid; text-align: center; padding: 5px 0; border-radius: 6px; background: #102a50; color: #fff; }
-.sale-banner-unit strong { font-size: 18px; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.sale-banner-unit small { font-size: 9px; line-height: 1.4; }
-@media (max-width: 760px) {
-  .sale-banner-inner { flex-direction: column; text-align: center; gap: 12px; }
-  .sale-banner-copy { flex-direction: column; gap: 8px; }
+.sale-banner { background: #fff5e2; color: #0b1736; }
+.sale-banner-inner { display: flex; align-items: center; gap: 20px; min-height: 52px; padding-block: 8px; font-weight: 700; }
+.sale-banner-copy { display: flex; align-items: center; gap: 12px; margin-right: auto; }
+.sale-banner-discount { flex: none; background: #c24100; color: #fff; border-radius: 5px; padding: 4px 12px; font-size: 17px; }
+.sale-banner-clock { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sale-banner-link { display: inline-flex; align-items: center; gap: 4px; padding-left: 18px; border-left: 1px solid #9fa7b3; text-decoration: underline; white-space: nowrap; }
+.home-hero { background: linear-gradient(120deg,#e6f2fd,#d1e5f8); }
+.home-hero .hero-inner { grid-template-columns: repeat(2,minmax(0,1fr)); gap: clamp(22px,4vw,60px); padding-block: clamp(28px,4vw,64px) clamp(20px,3vw,48px); }
+.home-hero h1 { width: auto; color: #081330; font-size: clamp(32px,6vw,90px); line-height: 1.06; letter-spacing: -.045em; margin: 0 0 14px; }
+.home-hero h1 > span { color: #c94300; }
+.home-hero .hero-description { color: #25334a; font-size: clamp(15px,2vw,25px); line-height: 1.4; margin: 0 0 clamp(20px,3vw,42px); }
+.home-hero .hero-actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.home-hero .hero-actions .button { min-height: 48px; border-radius: 7px; font-size: clamp(13px,1.6vw,19px); padding: 10px clamp(13px,2vw,26px); }
+.home-hero .button-orange { background: #bd4000; }
+.home-hero .button-whatsapp { border: 1.5px solid #081330; background: #f5faff; color: #081330; }
+.home-hero .button-whatsapp svg { color: #007953; }
+.home-hero-art { display: block; width: 100%; aspect-ratio: 1.38; object-fit: cover; border-radius: clamp(18px,3vw,44px); background: #08478d; }
+@media(max-width: 680px) {
+  .sale-banner-inner { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px 8px; font-size: 12px; }
+  .sale-banner-copy { grid-column: 1/-1; margin: 0; }
+  .sale-banner-discount { font-size: 13px; }
+  .sale-banner-link { border: 0; padding-left: 0; }
+  .home-hero .hero-inner { grid-template-columns: 1fr; }
+  .home-hero .hero-copy { text-align: left; }
+  .home-hero h1 { font-size: clamp(30px,9vw,56px); }
+  .home-hero .hero-actions { justify-content: flex-start; }
 }
