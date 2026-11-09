@@ -34,3 +34,22 @@
 @media(max-width:900px){.notes-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.card-art{height:210px}}
 @media(max-width:600px){.notes-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card-art{height:190px}.card-actions{grid-template-columns:1fr}.note-cover-message{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.note-cover-spinner{animation:none}}
+
+/* Keep the homepage hero compact while allowing its content to size the section. */
+@media (min-width: 901px) {
+  .hero-inner { padding-block: 24px 32px; }
+  .hero h1 { font-size: clamp(42px, 3.5vw, 52px); margin-block: 12px 18px; }
+  .hero .hindi-copy { margin-bottom: 16px; }
+  .hero-reassurance { margin-top: 14px; }
+  .hero-visual { height: 320px; }
+  .hero .book-stack { top: 72px; height: 220px; }
+  .hero-book.book-cover { height: 212px; }
+  .hero .floating-label { top: 52px; }
+}
+@media (max-width: 600px) {
+  .hero-inner { padding-block: 22px 26px; gap: 18px; }
+  .hero h1 { font-size: clamp(34px, 8.5vw, 42px); margin-block: 14px 22px; }
+  .hero-visual { height: 290px; }
+  .hero .book-stack { top: 72px; }
+  .hero-book.book-cover { height: 184px; }
+}
