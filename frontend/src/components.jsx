@@ -15,8 +15,9 @@ export function BookCover({ category = 'CTET', variant = 0, hero = false }) {
 export function NoteCover({ note }) {
   const [state, setState] = useState('loading');
   const unavailable = !note.coverUrl || state === 'error';
-  return <div className={`note-cover ${unavailable ? 'note-cover-unavailable' : `note-cover-${state}`}`}>
-    {note.coverUrl && state !== 'error' && <img src={note.coverUrl} alt={`First page of ${note.title}`} loading="lazy" decoding="async" onLoad={() => setState('ready')} onError={() => setState('error')}/>}
+  return <div className={`note-cover ${unavailable ? 'note-cover-unavailable' : `note-cover-${state}`}`} style={{ inset: 0 }}>
+    {state === 'ready' && note.coverUrl && <img src={note.coverUrl} alt="" aria-hidden="true" decoding="async" style={{ objectFit: 'cover', filter: 'blur(18px)', opacity: 0.34, transform: 'scale(1.16)' }}/>}
+    {note.coverUrl && state !== 'error' && <img src={note.coverUrl} alt={`First page of ${note.title}`} loading="lazy" decoding="async" style={{ inset: '8px 8px auto', width: 'calc(100% - 16px)', height: 'calc(100% - 40px)', objectFit: 'contain' }} onLoad={() => setState('ready')} onError={() => setState('error')}/>}
     {unavailable ? <div className="note-cover-message"><BookOpen size={28} aria-hidden="true"/><span>Preview unavailable</span></div> : state === 'loading' ? <div className="note-cover-message" role="status"><span className="note-cover-spinner" aria-hidden="true"/><span>Loading preview…</span></div> : null}
   </div>;
 }
