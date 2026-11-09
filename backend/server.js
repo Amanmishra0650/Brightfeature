@@ -22,7 +22,8 @@ function validateNote(body) {
   for (const key of ['price', 'originalPrice', 'pages', 'chapters']) if (!Number.isInteger(body[key]) || body[key] < 1 || body[key] > 100000) throw fail(400, `${key} must be a positive whole number below 100001.`);
   if (body.originalPrice < body.price) throw fail(400, 'Original price cannot be less than sale price.');
   if (typeof body.published !== 'boolean') throw fail(400, 'Published must be true or false.');
-  return { title: text(body.title, 'Title', 3, 100), category, description: text(body.description, 'Description', 5, 300), topics: text(body.topics, 'Topics', 3, 250), badge: text(body.badge, 'Badge', 1, 40), language: text(body.language, 'Language', 2, 50), price: body.price, originalPrice: body.originalPrice, pages: body.pages, chapters: body.chapters, published: body.published };
+  if (body.trending !== undefined && typeof body.trending !== 'boolean') throw fail(400, 'Trending must be true or false.');
+  return { title: text(body.title, 'Title', 3, 100), category, description: text(body.description, 'Description', 5, 300), topics: text(body.topics, 'Topics', 3, 250), badge: text(body.badge, 'Badge', 1, 40), language: text(body.language, 'Language', 2, 50), price: body.price, originalPrice: body.originalPrice, pages: body.pages, chapters: body.chapters, published: body.published, ...(body.trending === undefined ? {} : { trending: body.trending }) };
 }
 async function jsonBody(req) {
   if (!req.headers['content-type']?.includes('application/json')) throw fail(415, 'Use application/json.');
@@ -147,7 +148,7 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
         if (new URL(req.headers.origin).host !== host) throw fail(403, 'Origin is not allowed.');
       }
       if (path === '/api/health') return send(200, { ok: true, mode: 'demo' });
-      if (path === '/api/notes' && method === 'GET') return send(200, (await store.read()).notes.filter(note => note.published).map(({ file, ...note }) => ({ ...note, hasFile: Boolean(file), coverUrl: previewUrl({ ...note, file }), pages: file?.pageCount || note.pages })));
+      if (path === '/api/notes' && method === 'GET') return send(200, (await store.read()).notes.filter(note => note.published).map(({ file, ...note }) => ({ ...note, trending: note.trending === true, hasFile: Boolean(file), coverUrl: previewUrl({ ...note, file }), pages: file?.pageCount || note.pages })));
       const previewMatch = path.match(/^\/api\/notes\/([^/]+)\/preview(?:\/([1-4]))?$/);
       if (previewMatch && method === 'GET') {
         const note = (await store.read()).notes.find(item => item.id === previewMatch[1] && item.published);
@@ -363,7 +364,7 @@ export async function createApp({ dataDir = resolve(root, 'backend/data'), admin
             const index = data.notes.findIndex(note => note.id === noteMatch[1]);
             if (index < 0) throw fail(404, 'Notes not found.');
             if (method === 'DELETE') { removedFile = data.notes[index].file; data.notes.splice(index, 1); return { ok: true }; }
-            return data.notes[index] = { ...body, id: noteMatch[1], ...(data.notes[index].file ? { file: data.notes[index].file } : {}) };
+            return data.notes[index] = { trending: data.notes[index].trending === true, ...body, id: noteMatch[1], ...(data.notes[index].file ? { file: data.notes[index].file } : {}) };
           });
           if (removedFile) {
             await removePdf(removedFile.storageName).catch(error => { if (error.code !== 'ENOENT') console.error(error); });
